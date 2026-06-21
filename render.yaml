@@ -1,0 +1,24 @@
+# Render Blueprint for the Gatekeeper backend (FastAPI + WebSocket).
+#
+# Render's free web service supports WebSockets (wss://) out of the box — no
+# extra config needed. It also injects $PORT, which the start command binds to.
+#
+# After the first deploy, edit ALLOWED_ORIGINS below (or in the Render dashboard)
+# to your real published Lovable domain. NOTE: the backend already allows any
+# *.lovable.app / *.lovableproject.com origin via a built-in CORS regex, so the
+# dashboard will work even before you set the exact value here.
+services:
+  - type: web
+    name: gatekeeper-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # The start command. $PORT is provided by Render.
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MODE
+        value: SIMULATION
+      - key: ALLOWED_ORIGINS
+        value: "https://your-app.lovable.app,http://localhost:5173,http://localhost:3000"

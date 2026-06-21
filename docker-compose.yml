@@ -1,0 +1,19 @@
+# Local parity with production: builds the same Dockerfile and runs it on :8000.
+# Usage:  docker compose up --build
+services:
+  backend:
+    build: .
+    image: gatekeeper-backend
+    ports:
+      - "8000:8000"
+    environment:
+      MODE: SIMULATION
+      PORT: 8000
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
