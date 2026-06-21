@@ -10,11 +10,13 @@ from app.main import app
 
 
 def test_health():
+    """GET /health returns the ok status payload."""
     with TestClient(app) as client:
         assert client.get("/health").json() == {"status": "ok"}
 
 
 def test_plc_latest_is_camelcase():
+    """GET /api/plc/latest returns a camelCase reading envelope."""
     with TestClient(app) as client:
         body = client.get("/api/plc/latest").json()
     reading = body["reading"]
@@ -23,6 +25,7 @@ def test_plc_latest_is_camelcase():
 
 
 def test_miners_list_shape():
+    """GET /api/miners returns 10 miners with the expected camelCase fields."""
     with TestClient(app) as client:
         body = client.get("/api/miners").json()
     miners = body["miners"]
@@ -32,10 +35,10 @@ def test_miners_list_shape():
 
 
 def test_controller_state_superset():
+    """GET /api/controller/state emits both spec and frontend field names."""
     with TestClient(app) as client:
         body = client.get("/api/controller/state").json()
     state = body["state"]
-    # Both the written-spec names and the live-frontend names are present.
     for key in (
         "mode", "bufferFactor", "hysteresis",
         "loopInterval", "loopIntervalSec",
@@ -47,6 +50,7 @@ def test_controller_state_superset():
 
 
 def test_toggle_miner_power():
+    """POST /api/miners/{id}/power changes a miner's state (ON then OFF)."""
     with TestClient(app) as client:
         body = client.post("/api/miners/9/power", json={"state": "ON"}).json()
         assert body["miner"]["id"] == 9
@@ -57,19 +61,24 @@ def test_toggle_miner_power():
 
 
 def test_toggle_unknown_miner_404():
+    """Toggling a non-existent miner returns 404."""
     with TestClient(app) as client:
-        assert client.post("/api/miners/999/power", json={"state": "ON"}).status_code == 404
+        resp = client.post("/api/miners/999/power", json={"state": "ON"})
+        assert resp.status_code == 404
 
 
 def test_scenario_and_sim_endpoints():
+    """Both the spec scenario route and the frontend sim aliases succeed."""
     with TestClient(app) as client:
-        assert client.post("/api/scenario", json={"scenario": "ramp_up", "enabled": True}).json()["success"]
+        spec = client.post("/api/scenario", json={"scenario": "ramp_up", "enabled": True})
+        assert spec.json()["success"]
         assert client.post("/api/sim/ramp").json()["success"]
         assert client.post("/api/sim/drop?pct=20").json()["success"]
         assert client.post("/api/sim/noisy?on=true").json()["success"]
 
 
 def test_logs_endpoint():
+    """GET /api/logs returns an items envelope honouring the limit."""
     with TestClient(app) as client:
         body = client.get("/api/logs?limit=5").json()
     assert "items" in body
@@ -77,6 +86,7 @@ def test_logs_endpoint():
 
 
 def test_config_update():
+    """PUT /api/controller/config updates live params in both naming styles."""
     with TestClient(app) as client:
         body = client.put(
             "/api/controller/config", json={"bufferFactor": 0.85, "loopIntervalSec": 7}
@@ -87,13 +97,13 @@ def test_config_update():
 
 
 def test_websocket_initial_snapshot():
+    """Connecting to /ws yields an initial snapshot in both message styles."""
     with TestClient(app) as client:
         with client.websocket_connect("/ws") as websocket:
             seen_types = set()
             for _ in range(6):
                 msg = websocket.receive_json()
                 seen_types.add(msg["type"])
-            # Both message-type styles are broadcast (superset).
             assert "controller:state" in seen_types
             assert "controller_state_update" in seen_types
             assert "miners:update" in seen_types

@@ -35,6 +35,7 @@ class ControllerStateOut(BaseModel):
 
     @classmethod
     def from_state(cls, s) -> "ControllerStateOut":
+        """Build the camelCase superset DTO from an internal ControllerState."""
         return cls(
             mode=s.mode,
             bufferFactor=s.buffer_factor,
@@ -54,22 +55,32 @@ class ControllerStateOut(BaseModel):
 
 
 class PlcLatestResponse(BaseModel):
+    """Envelope for the latest PLC reading."""
+
     reading: PlcReading
 
 
 class MinersResponse(BaseModel):
+    """Envelope for the full miner list."""
+
     miners: list[Miner]
 
 
 class MinerResponse(BaseModel):
+    """Envelope for a single (updated) miner."""
+
     miner: Miner
 
 
 class ControllerStateResponse(BaseModel):
+    """Envelope for the controller state."""
+
     state: ControllerStateOut
 
 
 class LogsResponse(BaseModel):
+    """Envelope for a list of log events."""
+
     items: list[LogEvent]
 
 
@@ -77,6 +88,8 @@ class LogsResponse(BaseModel):
 
 
 class PowerCommand(BaseModel):
+    """Body for a miner power toggle."""
+
     state: Literal["ON", "OFF"]
 
 
@@ -92,5 +105,7 @@ class ConfigUpdate(BaseModel):
 
 
 class ScenarioCommand(BaseModel):
+    """Body for the written-spec scenario endpoint."""
+
     scenario: Literal["ramp_up", "sudden_drop", "noisy_gas"]
     enabled: bool = True

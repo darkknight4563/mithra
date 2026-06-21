@@ -8,6 +8,7 @@ from pydantic.alias_generators import to_camel
 
 
 def _utcnow() -> datetime:
+    """Return the current time as a timezone-aware UTC datetime."""
     return datetime.now(timezone.utc)
 
 

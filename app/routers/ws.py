@@ -25,16 +25,20 @@ class ConnectionManager:
     """Tracks connected clients and fans out messages, dropping dead sockets."""
 
     def __init__(self) -> None:
+        """Initialise with an empty set of active connections."""
         self.active: set[WebSocket] = set()
 
     async def connect(self, websocket: WebSocket) -> None:
+        """Accept a new WebSocket and register it for broadcasts."""
         await websocket.accept()
         self.active.add(websocket)
 
     def disconnect(self, websocket: WebSocket) -> None:
+        """Remove a WebSocket from the active set (no-op if absent)."""
         self.active.discard(websocket)
 
     async def broadcast(self, message: dict) -> None:
+        """Send a message to every client, dropping any that error out."""
         dead: list[WebSocket] = []
         for ws in list(self.active):
             try:
@@ -49,6 +53,7 @@ manager = ConnectionManager()
 
 
 def _snapshot() -> tuple[dict | None, dict, list[dict]]:
+    """Serialize the latest reading, controller state and miners to camelCase."""
     readings = controller.recent_readings()
     reading = readings[-1] if readings else None
     reading_data = (
@@ -62,6 +67,7 @@ def _snapshot() -> tuple[dict | None, dict, list[dict]]:
 
 
 def _messages() -> list[dict]:
+    """Build the full set of broadcast messages in both type styles."""
     reading_data, state_data, miners_data = _snapshot()
     ts = datetime.now(timezone.utc).isoformat()
     messages: list[dict] = []
@@ -83,6 +89,7 @@ async def broadcast_snapshot() -> None:
 
 @router.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket) -> None:
+    """Accept a client, send an initial snapshot, and keep it subscribed."""
     await manager.connect(websocket)
     try:
         # Send an immediate snapshot so a freshly-connected client is in sync.

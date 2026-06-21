@@ -42,6 +42,7 @@ _INITIAL_STATUS: dict[int, str] = {
 
 
 def _utcnow() -> datetime:
+    """Return the current time as a timezone-aware UTC datetime."""
     return datetime.now(timezone.utc)
 
 
@@ -54,6 +55,7 @@ class MinerService:
         clock: Callable[[], float] = time.monotonic,
         seed: int | None = 42,
     ) -> None:
+        """Create the service with a boot delay, clock and RNG seed."""
         self.boot_seconds = boot_seconds
         self._clock = clock
         self._rng = random.Random(seed)
@@ -62,6 +64,7 @@ class MinerService:
         self._seed_fleet()
 
     def _seed_fleet(self) -> None:
+        """Populate the fleet with the initial 10 miners and their state."""
         for i in range(NUM_MINERS):
             mid = i + 1
             # Vary nominal power linearly across the configured band.
@@ -101,6 +104,7 @@ class MinerService:
         return [self._miners[mid] for mid in sorted(self._miners)]
 
     def get(self, miner_id: int) -> Miner:
+        """Return a single miner by id, after applying boot transitions."""
         self._refresh()
         return self._miners[miner_id]
 

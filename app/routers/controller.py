@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/controller", tags=["controller"])
 
 @router.get("/state", response_model=ControllerStateResponse)
 async def get_state() -> ControllerStateResponse:
+    """Return the current controller state (camelCase superset)."""
     return ControllerStateResponse(state=ControllerStateOut.from_state(controller.state))
 
 

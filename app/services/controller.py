@@ -29,6 +29,8 @@ _FLUCTUATION_THRESHOLD = 0.05
 
 
 class Controller:
+    """Owns the control loop, shared state, and rolling reading/log buffers."""
+
     def __init__(
         self,
         plc: PlcInterface,
@@ -43,6 +45,7 @@ class Controller:
         max_logs: int = 200,
         stagger_seconds: float = 2.0,
     ) -> None:
+        """Wire the controller to a PLC and miner fleet with tuning params."""
         self.plc = plc
         self.miners = miners
         self.buffer_factor = buffer_factor
@@ -71,6 +74,7 @@ class Controller:
     # ---- logging ---------------------------------------------------------
 
     def _log(self, level: str, message: str) -> LogEvent:
+        """Append a LogEvent to the rolling buffer and return it."""
         event = LogEvent(level=level, message=message)  # type: ignore[arg-type]
         self.logs.append(event)
         return event
@@ -161,9 +165,11 @@ class Controller:
 
     @staticmethod
     def _ms(t0: float) -> float:
+        """Return milliseconds elapsed since the perf-counter value ``t0``."""
         return round((time.perf_counter() - t0) * 1000, 1)
 
     def _update_state(self, available_power: float) -> None:
+        """Recompute the shared ControllerState from the current fleet."""
         miners = self.miners.list_miners()
         on = [m for m in miners if m.status == "ON"]
         committed = [m for m in miners if m.status in ("ON", "BOOTING")]
@@ -190,6 +196,7 @@ class Controller:
             await asyncio.sleep(self.loop_interval)
 
     def stop(self) -> None:
+        """Signal the control loop to exit after the current iteration."""
         self._running = False
 
     # ---- scenario injection (dashboard Scenario Controls) ---------------
@@ -216,9 +223,11 @@ class Controller:
     # ---- read accessors for the API -------------------------------------
 
     def recent_readings(self) -> list[PlcReading]:
+        """Return the rolling buffer of recent PLC readings (chart feed)."""
         return list(self.readings)
 
     def recent_logs(self) -> list[LogEvent]:
+        """Return the rolling buffer of recent log events (activity feed)."""
         return list(self.logs)
 
 

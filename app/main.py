@@ -20,6 +20,7 @@ from app.services.controller import controller
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Start the control loop on startup and stop it cleanly on shutdown."""
     # Start the control loop and have each tick push WS updates.
     controller.set_tick_hook(broadcast_snapshot)
     task = asyncio.create_task(controller.run())
