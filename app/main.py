@@ -5,13 +5,17 @@ background task for the lifetime of the app.
 """
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.models import HealthResponse
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 from app.routers import controller as controller_router
 from app.routers import logs, miners, plc, scenario, ws
 from app.routers.ws import broadcast_snapshot
@@ -58,3 +62,9 @@ app.include_router(ws.router)
 async def health() -> HealthResponse:
     """Liveness probe used by the dashboard and orchestration."""
     return HealthResponse(status="ok")
+
+
+@app.get("/", include_in_schema=False)
+async def dashboard() -> FileResponse:
+    """Serve the bundled control-room dashboard at the root URL (same-origin)."""
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))

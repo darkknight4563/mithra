@@ -28,7 +28,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173,http://127.0.0.1:3000,http://127.0.0.1:8080"
     )
     allowed_origin_regex: str = (
-        r"https://.*\.(lovable\.app|lovable\.dev|lovableproject\.com|app\.github\.dev)"
+        r"(https://.*\.(lovable\.app|lovable\.dev|lovableproject\.com|app\.github\.dev)"
+        r"|https?://(localhost|127\.0\.0\.1)(:\d+)?)"
     )
 
     # Operating mode. SIMULATION uses the in-process fake PLC; LIVE talks to real hardware.
