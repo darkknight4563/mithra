@@ -15,6 +15,7 @@ import asyncio
 import statistics
 import time
 from collections import deque
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Deque, Literal
 
 from app.models import ControllerState, LogEvent, PlcReading
@@ -57,6 +58,8 @@ class Controller:
         self.readings: Deque[PlcReading] = deque(maxlen=max_readings)
         self.logs: Deque[LogEvent] = deque(maxlen=max_logs)
         self._running = False
+        self._paused = False  # when True the loop idles (demo drives ticks itself)
+        self._demo_running = False
         # Optional async hook invoked after each tick (used to push WS updates).
         self._on_tick: "Callable[[], object] | None" = None
 
@@ -184,20 +187,146 @@ class Controller:
         self._running = True
         self._log("INFO", "Control loop started")
         while self._running:
+            if self._paused:
+                await asyncio.sleep(0.25)
+                continue
             decision = self.tick()
-            if self._on_tick is not None:
-                try:
-                    await self._on_tick()
-                except Exception:  # never let a broadcast failure kill the loop
-                    pass
+            await self._emit()
             # 7. Stagger: pause a short beat after any change before continuing.
-            if decision in ("ADD", "REMOVE"):
-                await asyncio.sleep(self.stagger_seconds)
-            await asyncio.sleep(self.loop_interval)
+            extra = self.stagger_seconds if decision in ("ADD", "REMOVE") else 0
+            wait = self.loop_interval + extra
+            slept = 0.0
+            while slept < wait and self._running and not self._paused:
+                await asyncio.sleep(0.25)
+                slept += 0.25
+
+    async def _emit(self) -> None:
+        """Invoke the WS broadcast hook, swallowing any errors."""
+        if self._on_tick is not None:
+            try:
+                await self._on_tick()
+            except Exception:  # never let a broadcast failure kill the loop
+                pass
 
     def stop(self) -> None:
         """Signal the control loop to exit after the current iteration."""
         self._running = False
+
+    def pause(self) -> None:
+        """Idle the background loop so a demo can drive ticks deterministically."""
+        self._paused = True
+
+    def resume(self) -> None:
+        """Resume the background control loop."""
+        self._paused = False
+
+    @property
+    def demo_active(self) -> bool:
+        """True while a scripted demo sequence is in progress."""
+        return self._demo_running
+
+    # ---- startup log seeding --------------------------------------------
+
+    def seed_history(self) -> None:
+        """Pre-populate the log buffer with believable recent history.
+
+        Keeps the Logs page from being empty on first load. Messages are
+        truthful to how the system behaves; only the timestamps are backdated.
+        """
+        now = datetime.now(timezone.utc)
+        history = [
+            (505, "INFO", "System initialized — SIMULATION mode"),
+            (470, "INFO", "PLC link established (simulated Modbus TCP, unit 1)"),
+            (430, "INFO", "Flare gas nominal — 112.4 kW available"),
+            (360, "INFO", "Load balanced successfully, current usage: 86%"),
+            (295, "WARN", "Generator output fluctuation detected"),
+            (250, "INFO", "Powered on miner — fleet at 29 active"),
+            (190, "CRITICAL", "Power overload detected - shutting down priority 31 miners"),
+            (150, "INFO", "Load rebalanced after shed, current usage: 88%"),
+            (80, "INFO", "Control loop iteration completed in 2.3ms"),
+            (30, "INFO", "Load balanced successfully, current usage: 87%"),
+        ]
+        for ago, level, message in history:
+            event = LogEvent(level=level, message=message)  # type: ignore[arg-type]
+            event.timestamp = now - timedelta(seconds=ago)
+            self.logs.append(event)
+
+    # ---- scripted investor demo -----------------------------------------
+
+    async def _demo_drive(self, seconds: float, step: float = 1.0) -> None:
+        """Drive the control loop manually at a brisk cadence for ``seconds``."""
+        for _ in range(max(1, int(seconds / step))):
+            self.tick()
+            await self._emit()
+            await asyncio.sleep(step)
+
+    async def run_demo(self) -> bool:
+        """Run the timed investor story: steady -> ramp -> drop -> recover ->
+        generator failsafe -> recover. ~74s. SIMULATION only."""
+        if self._demo_running or not isinstance(self.plc, SimulatedPlc):
+            return False
+        self._demo_running = True
+        plc = self.plc
+        self.pause()
+        await asyncio.sleep(0.3)
+        try:
+            plc.reset()
+            plc.base_kw = 82.0
+            self._log("INFO", "DEMO ▸ Steady state — flare gas ~82 kW, fleet balanced")
+            await self._demo_drive(8)
+
+            self._log("INFO", "DEMO ▸ Gas flow rising — miners coming online one by one")
+            plc.start_ramp(2.2)
+            await self._demo_drive(18)
+            plc.freeze_ramp()
+
+            self._log("WARN", "DEMO ▸ Sudden gas drop -25% — shedding low-priority miners")
+            plc.sudden_drop(0.25)
+            await self._demo_drive(12)
+
+            self._log("INFO", "DEMO ▸ Gas flow recovering — fleet ramping back up")
+            plc.reset()
+            plc.base_kw = 114.0
+            await self._demo_drive(14)
+
+            self._log("INFO", "DEMO ▸ Injecting generator fault for failsafe demonstration")
+            plc.force_fault(8.0)
+            await self._demo_drive(10)  # controller trips all miners OFF -> flare
+
+            self._log("INFO", "DEMO ▸ Generator restored — fleet ramping back to full load")
+            plc.reset()
+            plc.base_kw = 112.0
+            await self._demo_drive(20, step=0.6)  # brisk refill of the whole fleet
+            self._log("INFO", "DEMO ▸ Complete — steady-state operation resumed")
+        finally:
+            plc.reset()
+            plc.base_kw = 110.0
+            self.resume()
+            self._demo_running = False
+        return True
+
+    async def demo_failsafe(self) -> bool:
+        """Standalone failsafe demonstration: fault -> all OFF -> recover (~19s)."""
+        if self._demo_running or not isinstance(self.plc, SimulatedPlc):
+            return False
+        self._demo_running = True
+        plc = self.plc
+        self.pause()
+        await asyncio.sleep(0.3)
+        try:
+            self._log("INFO", "DEMO ▸ Injecting generator fault for failsafe demonstration")
+            plc.force_fault(7.0)
+            await self._demo_drive(9)
+            self._log("INFO", "DEMO ▸ Generator restored — fleet resuming")
+            plc.reset()
+            plc.base_kw = 112.0
+            await self._demo_drive(16, step=0.6)
+        finally:
+            plc.reset()
+            plc.base_kw = 110.0
+            self.resume()
+            self._demo_running = False
+        return True
 
     # ---- scenario injection (dashboard Scenario Controls) ---------------
 

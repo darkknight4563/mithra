@@ -40,9 +40,9 @@ class PlcReading(CamelModel):
 class Miner(CamelModel):
     """State of a single mining unit."""
 
-    id: Annotated[int, Field(ge=1, le=10)]
+    id: Annotated[int, Field(ge=1, le=99)]
     ip: str
-    priority: Annotated[int, Field(ge=1, le=10)]
+    priority: Annotated[int, Field(ge=1, le=99)]
     status: Literal["ON", "OFF", "BOOTING", "ERROR"]
     power_kw: float
     hashrate_mhs: Optional[float] = None

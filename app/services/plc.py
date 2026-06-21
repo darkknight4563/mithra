@@ -68,10 +68,16 @@ class SimulatedPlc(PlcInterface):
         self.step_multiplier = 1.0
         self._ramp_rate = 0.0  # kW per second
         self._ramp_t0: Optional[float] = None
+        self._fault_until: Optional[float] = None
         self._clock = clock
 
     def read_power(self) -> PlcReading:
         """Compute and return the current simulated reading."""
+        # Forced generator fault (demo / failsafe test) takes precedence.
+        if self._fault_until is not None:
+            if self._clock() < self._fault_until:
+                return PlcReading(generator_kw=0.0, status="FAULT")
+            self._fault_until = None
         value = self.base_kw
         if self._ramp_rate and self._ramp_t0 is not None:
             value += self._ramp_rate * (self._clock() - self._ramp_t0)
@@ -91,6 +97,13 @@ class SimulatedPlc(PlcInterface):
         self._ramp_rate = rate_kw_per_sec
         self._ramp_t0 = self._clock()
 
+    def freeze_ramp(self) -> None:
+        """Stop an active ramp, folding what's accrued into the base value."""
+        if self._ramp_rate and self._ramp_t0 is not None:
+            self.base_kw += self._ramp_rate * (self._clock() - self._ramp_t0)
+        self._ramp_rate = 0.0
+        self._ramp_t0 = None
+
     def sudden_drop(self, pct: float = 0.20) -> None:
         """Instantly reduce output by ``pct`` (0.20 == -20%)."""
         self.step_multiplier *= 1.0 - pct
@@ -99,11 +112,16 @@ class SimulatedPlc(PlcInterface):
         """Set the fractional noise level (e.g. 0.03 for +/-3%)."""
         self.noise_level = level
 
+    def force_fault(self, seconds: float = 8.0) -> None:
+        """Simulate a generator fault for ``seconds`` (reads return FAULT/0)."""
+        self._fault_until = self._clock() + seconds
+
     def reset(self) -> None:
-        """Clear all scenario modifiers."""
+        """Clear all scenario modifiers and any forced fault."""
         self.step_multiplier = 1.0
         self._ramp_rate = 0.0
         self._ramp_t0 = None
+        self._fault_until = None
 
 
 class RealPlc(PlcInterface):

@@ -14,17 +14,19 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.models import HealthResponse
-
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 from app.routers import controller as controller_router
-from app.routers import logs, miners, plc, scenario, ws
+from app.routers import demo, logs, miners, plc, scenario, ws
 from app.routers.ws import broadcast_snapshot
 from app.services.controller import controller
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start the control loop on startup and stop it cleanly on shutdown."""
+    # Seed a believable recent log history so the Logs page isn't empty.
+    controller.seed_history()
     # Start the control loop and have each tick push WS updates.
     controller.set_tick_hook(broadcast_snapshot)
     task = asyncio.create_task(controller.run())
@@ -55,6 +57,7 @@ app.include_router(miners.router)
 app.include_router(controller_router.router)
 app.include_router(logs.router)
 app.include_router(scenario.router)
+app.include_router(demo.router)
 app.include_router(ws.router)
 
 

@@ -7,6 +7,7 @@ control loop runs in the background and may mutate the fleet between calls.
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.miners import NUM_MINERS
 
 
 def test_health():
@@ -29,7 +30,7 @@ def test_miners_list_shape():
     with TestClient(app) as client:
         body = client.get("/api/miners").json()
     miners = body["miners"]
-    assert len(miners) == 10
+    assert len(miners) == NUM_MINERS
     expected = {"id", "ip", "priority", "status", "powerKw", "hashrateMhs", "lastSeen"}
     assert expected <= set(miners[0])
 

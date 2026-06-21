@@ -53,6 +53,29 @@ def test_ramp_increases_power_over_time():
     assert plc.read_power().generator_kw == pytest.approx(base + 5.0, rel=1e-6)
 
 
+def test_force_fault_returns_fault_then_clears():
+    """force_fault makes reads return FAULT/0 until the window elapses."""
+    clock = FakeClock()
+    plc = SimulatedPlc(noise_level=0.0, clock=clock)
+    plc.force_fault(5)
+    r = plc.read_power()
+    assert r.status == "FAULT" and r.generator_kw == 0.0
+    clock.advance(6)
+    assert plc.read_power().status == "OK"
+
+
+def test_freeze_ramp_holds_value():
+    """freeze_ramp stops further ramp growth, holding the accrued value."""
+    clock = FakeClock()
+    plc = SimulatedPlc(base_kw=100.0, noise_level=0.0, clock=clock)
+    plc.start_ramp(1.0)
+    clock.advance(10)
+    plc.freeze_ramp()
+    held = plc.read_power().generator_kw
+    clock.advance(10)
+    assert plc.read_power().generator_kw == held  # no further growth
+
+
 def test_real_plc_decodes_and_scales_register():
     """RealPlc reads a holding register and scales raw/10 -> kW (1234 -> 123.4)."""
     client = MagicMock()

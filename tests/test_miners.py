@@ -1,18 +1,18 @@
 """Tests for the simulated miner fleet service."""
 
-from app.services.miners import MinerService
+from app.services.miners import NUM_MINERS, MinerService
 
 from .conftest import FakeClock
 
 
 def test_fleet_is_seeded_realistically():
-    """The fleet seeds 10 miners with correct ips, priorities, power and a mix."""
+    """The fleet seeds NUM_MINERS units with correct ips, priorities and mix."""
     svc = MinerService()
     miners = svc.list_miners()
-    assert len(miners) == 10
-    assert [m.id for m in miners] == list(range(1, 11))
-    assert [m.ip for m in miners] == [f"192.168.1.{100 + i}" for i in range(1, 11)]
-    assert sorted(m.priority for m in miners) == list(range(1, 11))
+    assert len(miners) == NUM_MINERS
+    assert [m.id for m in miners] == list(range(1, NUM_MINERS + 1))
+    assert [m.ip for m in miners] == [f"192.168.1.{100 + i}" for i in range(1, NUM_MINERS + 1)]
+    assert sorted(m.priority for m in miners) == list(range(1, NUM_MINERS + 1))
     for m in miners:
         assert 2.88 <= m.power_kw <= 3.25
     # Exactly one unit left in ERROR, plus a mix of ON/OFF.

@@ -130,6 +130,34 @@
   .panel-h .right { margin-left:auto; display:flex; align-items:center; gap:10px; }
   .badge-live { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--green); font-family:var(--mono); }
 
+  /* SIMULATION badge — kept honest & visible */
+  .sim-badge { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px;
+    background: var(--accent-soft); color: var(--accent); border:1px solid rgba(255,122,26,.45);
+    font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:1.5px; }
+  .sim-badge .pdot { width:7px; height:7px; border-radius:50%; background:var(--accent); animation: pulse 2s infinite; }
+
+  /* Failsafe banner */
+  .failsafe-banner { display:none; align-items:center; gap:14px; margin: 0 0 14px; padding: 15px 20px;
+    border-radius: var(--radius); background: linear-gradient(90deg, rgba(255,84,104,.20), rgba(255,84,104,.05));
+    border:1px solid rgba(255,84,104,.55); color: var(--red); font-weight:700; letter-spacing:.3px; animation: fsPulse 1.3s infinite; }
+  .failsafe-banner.show { display:flex; }
+  .failsafe-banner .big { font-size:19px; }
+  @keyframes fsPulse { 50% { border-color: rgba(255,84,104,.95); box-shadow: 0 0 0 1px rgba(255,84,104,.4); } }
+
+  /* Demo buttons */
+  .demo-btn { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:11px; border:1px solid var(--accent);
+    background: linear-gradient(180deg, rgba(255,122,26,.20), rgba(255,122,26,.06)); color: var(--txt); cursor:pointer;
+    width:100%; font-family:var(--sans); font-size:14px; font-weight:650; transition:.15s; text-align:left; }
+  .demo-btn:hover { background: rgba(255,122,26,.26); transform: translateY(-1px); }
+  .demo-btn:disabled { opacity:.5; cursor:wait; transform:none; }
+  .demo-btn .em { width:36px; height:36px; border-radius:9px; display:grid; place-items:center; background:var(--accent); color:#1a0d00; font-size:17px; flex:0 0 auto; }
+  .demo-btn .d { font-size:11px; color:var(--txt-dim); font-weight:500; }
+  .fs-btn { border-color: rgba(255,84,104,.5); background: rgba(255,84,104,.08); }
+  .fs-btn:hover { background: rgba(255,84,104,.16); }
+  .fs-btn .em { background: var(--red); color:#fff; }
+
+  .table-scroll { max-height: 430px; overflow-y: auto; }
+
   /* ============ Chart ============ */
   .chart-body { padding: 14px 14px 8px; }
   #chart { width: 100%; height: 280px; display:block; }
@@ -246,6 +274,7 @@
         <div class="sub">Flare-Gas Mining Control</div>
       </div>
     </div>
+    <span class="sim-badge" title="This is a labeled simulation — no live hardware"><span class="pdot"></span> SIMULATION</span>
     <div class="spacer"></div>
     <div class="stat-strip" id="statStrip">
       <span><span class="dot dead" id="connDot"></span> <b id="connText">Connecting…</b></span>
@@ -254,6 +283,12 @@
     </div>
     <button class="pill" id="connPill" title="Backend connection">⛭ <span id="connUrl">same-origin</span></button>
     <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
+  </div>
+
+  <!-- Failsafe banner (shown when the generator faults) -->
+  <div class="failsafe-banner" id="failsafeBanner">
+    <span class="big">⚠</span>
+    <span>GENERATOR FAULT — GAS AUTO-DIVERTS TO FLARE · all miners safely stopped (failsafe engaged)</span>
   </div>
 
   <!-- KPIs -->
@@ -285,12 +320,14 @@
       <!-- Miners -->
       <div class="card">
         <div class="panel-h"><h2>Mining Fleet</h2><span class="desc">real-time status &amp; control</span></div>
+        <div class="table-scroll">
         <table>
           <thead><tr>
             <th>Priority</th><th>IP Address</th><th>Status</th><th>Power</th><th>Hashrate</th><th>Last Seen</th><th style="text-align:right">Action</th>
           </tr></thead>
           <tbody id="minerRows"><tr><td colspan="7" style="color:var(--txt-faint); padding:24px 16px;">Loading fleet…</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -299,6 +336,9 @@
       <div class="card">
         <div class="panel-h"><h2>Scenario Controls</h2><span class="desc">test response</span></div>
         <div class="scn">
+          <button class="demo-btn" id="btnDemo"><span class="em">▶</span><span><div>Run Investor Demo</div><div class="d">~80s scripted story — sit back &amp; narrate</div></span></button>
+          <button class="demo-btn fs-btn" id="btnFailsafe"><span class="em">🛡</span><span><div>Failsafe Test</div><div class="d">generator fault → gas to flare → recover</div></span></button>
+          <div style="height:4px"></div>
           <button class="scn-btn scn-up" id="scnRamp"><span class="em">↗</span><span><div class="t">Ramp Up</div><div class="d">+0.5 kW/sec gradual increase</div></span></button>
           <button class="scn-btn scn-down" id="scnDrop"><span class="em">↘</span><span><div class="t">Sudden Drop</div><div class="d">instant −20% available power</div></span></button>
           <button class="scn-btn scn-noisy" id="scnNoisy"><span class="em">⚡</span><span><div class="t">Noisy Gas <span id="noisyState" style="color:var(--txt-faint)">OFF</span></div><div class="d">±3% fluctuation each tick</div></span></button>
@@ -400,6 +440,8 @@
     $("sbBuffer").textContent = num(s.bufferFactor, 2);
     $("sbHyst").textContent = num(s.hysteresis, 2);
     $("sbLoop").textContent = loopInt(s) + "s";
+    // Failsafe banner: generator fault drives latest PLC output to zero.
+    $("failsafeBanner").classList.toggle("show", (s.latestPlcKw ?? 1) <= 0);
   }
 
   /* ---------------- miners render ---------------- */
@@ -475,6 +517,22 @@
       $("scnNoisy").classList.toggle("active", next);
       toast(`Noisy Gas ${next ? "ON" : "OFF"}`, "ok");
     }
+  };
+
+  /* ---------------- scripted demo ---------------- */
+  $("btnDemo").onclick = async () => {
+    const b = $("btnDemo"); b.disabled = true;
+    try {
+      const j = await (await fetch(httpUrl("/api/demo/run"), { method: "POST" })).json();
+      toast(j.started ? "Investor demo running (~80s) — watch the chart" : "A demo is already running", j.started ? "ok" : "");
+    } catch (e) { toast("Could not start demo", "err"); }
+    setTimeout(() => { b.disabled = false; }, 84000);
+  };
+  $("btnFailsafe").onclick = async () => {
+    try {
+      const j = await (await fetch(httpUrl("/api/demo/failsafe"), { method: "POST" })).json();
+      toast(j.started ? "Failsafe test — gas diverting to flare" : "A demo is already running", j.started ? "err" : "");
+    } catch (e) { toast("Could not trigger failsafe", "err"); }
   };
 
   /* ---------------- logs ---------------- */

@@ -18,7 +18,9 @@ from typing import Callable, Literal
 
 from app.models import Miner
 
-NUM_MINERS = 10
+# Fleet sized so load can track ~85-90% of a ~100-120 kW flare generator with
+# ~3 kW ASIC-class miners (matches the deck economics; 33 x ~3.06 kW ~= 101 kW).
+NUM_MINERS = 33
 _IP_PREFIX = "192.168.1."
 _POWER_MIN = 2.88
 _POWER_MAX = 3.25
@@ -26,19 +28,14 @@ _HASHRATE_MIN = 50.0
 _HASHRATE_MAX = 110.0
 _BOOT_SECONDS = 3.0
 
-# Realistic starting mix: most ON, a few OFF, one stuck in ERROR.
-_INITIAL_STATUS: dict[int, str] = {
-    1: "ON",
-    2: "ON",
-    3: "ON",
-    4: "OFF",
-    5: "ON",
-    6: "OFF",
-    7: "ON",
-    8: "OFF",
-    9: "OFF",
-    10: "ERROR",
-}
+
+def _seed_status(mid: int) -> str:
+    """Realistic starting mix: most ON, a band OFF, one stuck in ERROR."""
+    if mid == NUM_MINERS:
+        return "ERROR"
+    if mid > NUM_MINERS - 9:  # last 8 (before the ERROR unit) start OFF
+        return "OFF"
+    return "ON"
 
 
 def _utcnow() -> datetime:
@@ -69,7 +66,7 @@ class MinerService:
             mid = i + 1
             # Vary nominal power linearly across the configured band.
             power = round(_POWER_MIN + i * (_POWER_MAX - _POWER_MIN) / (NUM_MINERS - 1), 2)
-            status = _INITIAL_STATUS[mid]
+            status = _seed_status(mid)
             hashrate = (
                 round(self._rng.uniform(_HASHRATE_MIN, _HASHRATE_MAX), 1)
                 if status == "ON"
