@@ -3,11 +3,23 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class CamelModel(BaseModel):
+    """Base for models serialized to the frontend as camelCase JSON.
+
+    Python attributes stay snake_case (service code is unaffected); JSON in/out
+    uses camelCase aliases. `populate_by_name=True` lets us keep constructing
+    instances with snake_case keyword args.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class HealthResponse(BaseModel):
@@ -16,7 +28,7 @@ class HealthResponse(BaseModel):
     status: str
 
 
-class PlcReading(BaseModel):
+class PlcReading(CamelModel):
     """A single power reading from the generator's PLC."""
 
     timestamp: datetime = Field(default_factory=_utcnow)
@@ -24,7 +36,7 @@ class PlcReading(BaseModel):
     status: Literal["OK", "FAULT"] = "OK"
 
 
-class Miner(BaseModel):
+class Miner(CamelModel):
     """State of a single mining unit."""
 
     id: Annotated[int, Field(ge=1, le=10)]
@@ -49,7 +61,7 @@ class ControllerState(BaseModel):
     latest_plc_kw: float
 
 
-class LogEvent(BaseModel):
+class LogEvent(CamelModel):
     """A timestamped event for the activity log."""
 
     timestamp: datetime = Field(default_factory=_utcnow)

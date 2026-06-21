@@ -21,8 +21,15 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # CORS — the React (Lovable) dashboard origin(s). "*" is fine for local dev.
-    cors_origins: list[str] = ["*"]
+    # CORS. Comma-separated exact origins, plus a regex for the variable Lovable
+    # preview / GitHub Codespace hostnames.
+    allowed_origins: str = (
+        "http://localhost:5173,http://localhost:3000,http://localhost:8080,"
+        "http://127.0.0.1:5173,http://127.0.0.1:3000,http://127.0.0.1:8080"
+    )
+    allowed_origin_regex: str = (
+        r"https://.*\.(lovable\.app|lovable\.dev|lovableproject\.com|app\.github\.dev)"
+    )
 
     # Operating mode. SIMULATION uses the in-process fake PLC; LIVE talks to real hardware.
     mode: Literal["SIMULATION", "LIVE"] = "SIMULATION"
@@ -37,6 +44,11 @@ class Settings(BaseSettings):
     buffer_factor: float = 0.90  # only schedule load up to this fraction of available power
     hysteresis: float = 0.05  # dead-band to avoid flapping miners on/off
     loop_interval: int = 10  # seconds between control-loop iterations
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse ALLOWED_ORIGINS into a clean list of exact origins."""
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
 
 settings = Settings()

@@ -54,6 +54,8 @@ class Controller:
         self.readings: Deque[PlcReading] = deque(maxlen=max_readings)
         self.logs: Deque[LogEvent] = deque(maxlen=max_logs)
         self._running = False
+        # Optional async hook invoked after each tick (used to push WS updates).
+        self._on_tick: "Callable[[], object] | None" = None
 
         self.state = ControllerState(
             mode=mode,  # type: ignore[arg-type]
@@ -72,6 +74,14 @@ class Controller:
         event = LogEvent(level=level, message=message)  # type: ignore[arg-type]
         self.logs.append(event)
         return event
+
+    def log(self, level: str, message: str) -> LogEvent:
+        """Public log entry point for routes (e.g. config changes)."""
+        return self._log(level, message)
+
+    def set_tick_hook(self, hook: "Callable[[], object]") -> None:
+        """Register an async callable invoked after each control-loop tick."""
+        self._on_tick = hook
 
     # ---- one control-loop iteration -------------------------------------
 
@@ -169,6 +179,11 @@ class Controller:
         self._log("INFO", "Control loop started")
         while self._running:
             decision = self.tick()
+            if self._on_tick is not None:
+                try:
+                    await self._on_tick()
+                except Exception:  # never let a broadcast failure kill the loop
+                    pass
             # 7. Stagger: pause a short beat after any change before continuing.
             if decision in ("ADD", "REMOVE"):
                 await asyncio.sleep(self.stagger_seconds)
@@ -179,7 +194,9 @@ class Controller:
 
     # ---- scenario injection (dashboard Scenario Controls) ---------------
 
-    def apply_scenario(self, name: str, enabled: bool = True) -> None:
+    def apply_scenario(
+        self, name: str, enabled: bool = True, pct: float = 0.20
+    ) -> None:
         """Drive the SimulatedPlc's modifiers. No-op outside SIMULATION."""
         if not isinstance(self.plc, SimulatedPlc):
             self._log("WARN", f"Scenario '{name}' ignored (not in SIMULATION mode)")
@@ -188,8 +205,8 @@ class Controller:
             self.plc.start_ramp(0.5)
             self._log("INFO", "Scenario: ramp_up enabled (+0.5 kW/s)")
         elif name == "sudden_drop":
-            self.plc.sudden_drop(0.20)
-            self._log("WARN", "Scenario: sudden_drop applied (-20%)")
+            self.plc.sudden_drop(pct)
+            self._log("WARN", f"Scenario: sudden_drop applied (-{round(pct * 100)}%)")
         elif name == "noisy_gas":
             self.plc.set_noise(0.03 if enabled else 0.01)
             self._log("INFO", f"Scenario: noisy_gas {'enabled' if enabled else 'disabled'}")
