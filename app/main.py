@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from app.config import settings
 from app.models import HealthResponse
 from app.routers import controller as controller_router
-from app.routers import demo, logs, miners, plc, scenario, ws
+from app.routers import demo, logs, miners, plc, roi, scenario, ws
 from app.routers.ws import broadcast_snapshot
 from app.services.controller import controller
 
@@ -58,6 +58,7 @@ app.include_router(controller_router.router)
 app.include_router(logs.router)
 app.include_router(scenario.router)
 app.include_router(demo.router)
+app.include_router(roi.router)
 app.include_router(ws.router)
 
 
@@ -71,3 +72,9 @@ async def health() -> HealthResponse:
 async def dashboard() -> FileResponse:
     """Serve the bundled control-room dashboard at the root URL (same-origin)."""
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/roi", include_in_schema=False)
+async def roi_calculator() -> FileResponse:
+    """Serve the investor-facing dual-workload ROI calculator."""
+    return FileResponse(os.path.join(STATIC_DIR, "roi.html"))

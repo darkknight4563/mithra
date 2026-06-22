@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gatekeeper — Dual-Workload ROI Calculator</title>
+<style>
+  :root {
+    --bg:#0a0d12; --bg-grid:rgba(255,255,255,.025); --panel:#11151c; --panel-2:#151b24; --panel-hi:#1b232e;
+    --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.12); --txt:#e6edf3; --txt-dim:#8b97a7; --txt-faint:#5b6675;
+    --accent:#ff7a1a; --accent-soft:rgba(255,122,26,.14); --cyan:#34c3ff; --cyan-soft:rgba(52,195,255,.14);
+    --green:#2ee6a6; --amber:#ffb020; --red:#ff5468; --radius:14px;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace; --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 30px -12px rgba(0,0,0,.6);
+  }
+  html[data-theme="light"]{--bg:#eef1f5;--bg-grid:rgba(0,0,0,.03);--panel:#fff;--panel-2:#f6f8fa;--panel-hi:#eef2f6;--line:rgba(0,0,0,.08);--line-2:rgba(0,0,0,.14);--txt:#0f1722;--txt-dim:#5a6675;--txt-faint:#8a96a5;--cyan:#0d8bd1;--green:#119e74;--shadow:0 1px 2px rgba(0,0,0,.04),0 12px 28px -16px rgba(0,0,0,.25);}
+  *{box-sizing:border-box;} html,body{height:100%;}
+  body{margin:0;font-family:var(--sans);font-size:14px;line-height:1.45;color:var(--txt);-webkit-font-smoothing:antialiased;
+    background:radial-gradient(1200px 600px at 80% -10%,rgba(255,122,26,.06),transparent 60%),
+      linear-gradient(var(--bg-grid) 1px,transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg,var(--bg-grid) 1px,transparent 1px) 0 0/28px 100%,var(--bg);}
+  .wrap{max-width:1480px;margin:0 auto;padding:18px 22px 48px;}
+  a{color:var(--cyan);text-decoration:none;} a:hover{text-decoration:underline;}
+
+  .topbar{display:flex;align-items:center;gap:16px;padding:10px 4px 18px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,#ff9a3c,var(--accent));display:grid;place-items:center;
+    box-shadow:0 6px 18px -6px rgba(255,122,26,.7),0 0 0 1px rgba(255,255,255,.08) inset;flex:0 0 auto;}
+  .brand h1{font-size:16px;margin:0;font-weight:700;} .brand .sub{font-size:11px;color:var(--txt-dim);letter-spacing:1.4px;text-transform:uppercase;}
+  .spacer{flex:1;}
+  .icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--txt-dim);cursor:pointer;font-size:16px;display:grid;place-items:center;}
+  .icon-btn:hover{color:var(--txt);border-color:var(--accent);}
+  .navlink{padding:8px 14px;border-radius:999px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--txt-dim);font-size:13px;}
+  .navlink:hover{color:var(--txt);border-color:var(--accent);text-decoration:none;}
+
+  .provenance{font-size:12px;color:var(--txt-dim);background:var(--accent-soft);border:1px solid rgba(255,122,26,.3);
+    border-radius:10px;padding:10px 14px;margin-bottom:16px;}
+  .provenance b{color:var(--accent);}
+
+  /* hero metrics */
+  .hero{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+  @media(max-width:1080px){.hero{grid-template-columns:repeat(2,1fr);}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+  .metric{padding:16px 18px;position:relative;overflow:hidden;}
+  .metric .lbl{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--txt-dim);}
+  .metric .val{font-family:var(--mono);font-size:30px;font-weight:650;margin-top:7px;letter-spacing:-.5px;}
+  .metric .val small{font-size:14px;color:var(--txt-dim);font-weight:500;}
+  .metric .bar{position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .m1 .bar{background:var(--green);} .m2 .bar{background:var(--cyan);} .m3 .bar{background:var(--accent);} .m4 .bar{background:var(--amber);}
+  .val.bad{color:var(--red);}
+
+  .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr;}}
+  .panel-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);}
+  .panel-h h2{font-size:14px;margin:0;font-weight:650;} .panel-h .desc{font-size:12px;color:var(--txt-dim);}
+
+  /* sliders */
+  .group-h{font-size:11px;text-transform:uppercase;letter-spacing:1.3px;color:var(--accent);margin:16px 4px 4px;font-weight:700;}
+  .ctrl{padding:10px 16px;}
+  .ctrl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .ctrl label{font-size:13px;font-weight:600;}
+  .ctrl .v{font-family:var(--mono);font-size:13px;color:var(--cyan);}
+  .ctrl .cite{font-size:10px;color:var(--txt-faint);font-family:var(--mono);margin-top:3px;}
+  input[type=range]{width:100%;margin:8px 0 2px;accent-color:var(--accent);height:4px;}
+  .seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;}
+  .seg button{background:var(--panel-2);color:var(--txt-dim);border:0;padding:7px 12px;font-size:12px;cursor:pointer;font-family:var(--sans);}
+  .seg button.on{background:var(--accent);color:#1a0d00;font-weight:700;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:10px;}
+  .toggle-row .cite{font-size:10px;color:var(--txt-faint);font-family:var(--mono);}
+
+  /* results */
+  .kv{display:flex;justify-content:space-between;padding:9px 18px;border-bottom:1px solid var(--line);font-size:13px;}
+  .kv:last-child{border-bottom:0;} .kv .k{color:var(--txt-dim);} .kv .val{font-family:var(--mono);}
+  .pos{color:var(--green);} .neg{color:var(--red);}
+
+  /* revenue split bar */
+  .split{padding:16px 18px;}
+  .split .bar{display:flex;height:34px;border-radius:9px;overflow:hidden;border:1px solid var(--line-2);}
+  .split .ai{background:linear-gradient(90deg,#1f7fb8,var(--cyan));} .split .btc{background:linear-gradient(90deg,#b8550f,var(--accent));}
+  .split .seg-lbl{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#06121a;font-family:var(--mono);min-width:0;}
+  .split .legend{display:flex;gap:18px;margin-top:10px;font-size:12px;color:var(--txt-dim);}
+  .split .legend i{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:middle;margin-right:6px;}
+
+  /* tornado */
+  .torn{padding:14px 18px;}
+  .torn-row{display:grid;grid-template-columns:120px 1fr 90px;align-items:center;gap:10px;margin:7px 0;font-size:12px;}
+  .torn-row .name{color:var(--txt-dim);font-weight:600;}
+  .torn-track{position:relative;height:20px;background:var(--panel-2);border-radius:5px;border:1px solid var(--line);}
+  .torn-seg{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--cyan-soft),var(--accent-soft));border-radius:4px;}
+  .torn-base{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt);}
+  .torn-row .swing{font-family:var(--mono);color:var(--txt-dim);text-align:right;}
+
+  .foot{margin-top:18px;font-size:11px;color:var(--txt-faint);line-height:1.7;border-top:1px solid var(--line);padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2c1 4-2 5-2 8a4 4 0 0 0 8 0c0-2-1-3-1-3 2 1 3 3 3 6a8 8 0 1 1-15.5-2.8C6 6 10 6 12 2z" fill="#1a0d00"/></svg></div>
+      <div><h1>GATEKEEPER <span style="color:var(--accent)">AI</span></h1><div class="sub">Dual-Workload ROI Calculator</div></div>
+    </div>
+    <div class="spacer"></div>
+    <a class="navlink" href="/">← Control Room</a>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
+  </div>
+
+  <div class="provenance">
+    <b>Model basis:</b> every default is sourced from the June-2026 techno-economic report (cited inline on each input).
+    Bitcoin is the interruptible "power sponge"; AI is the firmed, higher-value baseload — the dual-workload arbitrage is the product.
+    Live market figures move daily — override the sliders. Vendor figures (Crusoe, Luxor) are directional, not audited.
+  </div>
+
+  <div class="hero">
+    <div class="card metric m1"><div class="bar"></div><div class="lbl">Payback</div><div class="val" id="hPayback">—</div></div>
+    <div class="card metric m2"><div class="bar"></div><div class="lbl">Project IRR</div><div class="val" id="hIrr">—</div></div>
+    <div class="card metric m3"><div class="bar"></div><div class="lbl" id="hNpvLbl">NPV (4 yr @ 12%)</div><div class="val" id="hNpv">—</div></div>
+    <div class="card metric m4"><div class="bar"></div><div class="lbl">Net Profit / day</div><div class="val" id="hNet">—</div></div>
+  </div>
+
+  <div class="grid">
+    <!-- inputs -->
+    <div class="card" style="align-self:start;">
+      <div class="panel-h"><h2>Inputs</h2><span class="desc">drag to model your site</span></div>
+      <div id="sliders" style="padding-bottom:8px;"></div>
+      <div class="group-h" style="padding-left:16px;">Hardware &amp; Business Model</div>
+      <div class="toggle-row">
+        <div><label>Miner class</label><div class="cite">§1 — fuel is ~free, so cheaper air-cooled often wins</div></div>
+        <div class="seg" id="minerSeg">
+          <button data-h="234" data-p="3.51" data-c="3500" class="on">S21 Pro</button>
+          <button data-h="473" data-p="5.676" data-c="8250">XP Hydro</button>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <div><label>Software fee</label><div class="cite">§5 — Luxor Commander: $100/MW/mo or 0.25% pool fee</div></div>
+        <div class="seg" id="feeSeg">
+          <button data-m="perMW" class="on">$100/MW/mo</button>
+          <button data-m="revShare">2% revenue</button>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <div><label>Carbon credits</label><div class="cite">§3 — upside only; ~0.046 tCO2e avoided/Mcf</div></div>
+        <div class="seg" id="carbonSeg">
+          <button data-c="off" class="on">Off</button>
+          <button data-c="on">On ($20/t)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- results -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card">
+        <div class="panel-h"><h2>Daily Economics</h2><span class="desc">where the money comes from &amp; goes</span></div>
+        <div class="split">
+          <div class="bar" id="splitBar"></div>
+          <div class="legend">
+            <span><i style="background:var(--cyan)"></i>AI compute <b id="legAi" style="color:var(--txt)"></b></span>
+            <span><i style="background:var(--accent)"></i>Bitcoin <b id="legBtc" style="color:var(--txt)"></b></span>
+          </div>
+        </div>
+        <div class="kv"><span class="k">AI revenue (firmed baseload)</span><span class="val pos" id="rAi"></span></div>
+        <div class="kv"><span class="k">Bitcoin revenue (interruptible)</span><span class="val pos" id="rBtc"></span></div>
+        <div class="kv"><span class="k">Carbon credits (upside)</span><span class="val" id="rCarbon"></span></div>
+        <div class="kv"><span class="k">Fuel (stranded gas)</span><span class="val" id="cFuel"></span></div>
+        <div class="kv"><span class="k">Genset O&amp;M + labor</span><span class="val neg" id="cOm"></span></div>
+        <div class="kv"><span class="k">Gatekeeper software fee</span><span class="val neg" id="cSw"></span></div>
+        <div class="kv"><span class="k" style="font-weight:700;color:var(--txt)">Net profit / day</span><span class="val" id="cNet" style="font-weight:700;"></span></div>
+      </div>
+
+      <div class="card">
+        <div class="panel-h"><h2>Site Build</h2><span class="desc" id="siteDesc"></span></div>
+        <div class="kv"><span class="k">Firm power (after uptime)</span><span class="val" id="bFirm"></span></div>
+        <div class="kv"><span class="k">AI GPUs (H100-class)</span><span class="val" id="bGpu"></span></div>
+        <div class="kv"><span class="k">Bitcoin miners</span><span class="val" id="bMiner"></span></div>
+        <div class="kv"><span class="k">Total capex</span><span class="val" id="bCapex"></span></div>
+        <div class="kv"><span class="k">CO₂e avoided vs flaring</span><span class="val pos" id="bCo2"></span></div>
+      </div>
+
+      <div class="card">
+        <div class="panel-h"><h2>Sensitivity</h2><span class="desc">NPV swing — the axes that decide the deal (§4)</span></div>
+        <div class="torn" id="tornado"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot" id="foot">Loading defaults…</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const apiBase = () => (localStorage.getItem("gk_api_base") || "").replace(/\/+$/, "");
+
+  // theme (shared pref with control room)
+  const root = document.documentElement;
+  if (localStorage.getItem("gk_theme")) root.dataset.theme = localStorage.getItem("gk_theme");
+  $("themeBtn").onclick = () => { root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark"; localStorage.setItem("gk_theme", root.dataset.theme); render(); };
+
+  const CO2E_AVOIDED_PER_MCF = 0.073 * 0.63;  // §3, mirrors roi.py
+  let state = null, sliders = [];
+
+  // --- formatters ---
+  const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const moneyM = (v) => (v < 0 ? "-$" : "$") + (Math.abs(v) / 1e6).toFixed(2) + "M";
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+
+  // --- model: mirrors app/services/roi.py compute() exactly ---
+  function computeRoi(s) {
+    const firmKW = (s.gasFlowMcfPerDay * s.kwhPerMcf / 24) * s.uptime;
+    const aiKW = firmKW * s.aiAllocation, btcKW = firmKW - aiKW;
+    const numGpus = Math.floor(aiKW / s.gpuPowerKw), numMiners = Math.floor(btcKW / s.minerPowerKw);
+    const btcRevenue = numMiners * s.minerHashrateTh * s.hashpricePerThDay * s.uptime;
+    const aiRevenue = numGpus * s.gpuRentalPerHr * 24 * s.captureFraction * s.uptime;
+    const grossRevenue = btcRevenue + aiRevenue;
+    const energyKWhDay = (aiKW + btcKW) * 24;
+    const fuelMcfDay = energyKWhDay / s.kwhPerMcf;
+    const fuelCost = fuelMcfDay * s.gasPricePerMcf;
+    const gensetOm = energyKWhDay * s.gensetOpexPerKwh;
+    const labor = 150;
+    const siteMW = (aiKW + btcKW) / 1000;
+    const softwareFee = s.softwareFeeMode === "perMW" ? siteMW * s.softwareFeePerMwMonth / 30 : grossRevenue * s.softwareRevSharePct;
+    const carbonRevenue = s.carbonCreditEnabled ? fuelMcfDay * CO2E_AVOIDED_PER_MCF * s.carbonPricePerTonne : 0;
+    const opCost = fuelCost + gensetOm + labor + softwareFee;
+    const netProfitDay = grossRevenue + carbonRevenue - opCost;
+    const annualNet = netProfitDay * 365;
+    const capex = (aiKW + btcKW) * s.gensetCapexPerKw + numMiners * s.minerCapex + numGpus * s.gpuCapex;
+    const paybackMonths = netProfitDay > 0 ? capex / (netProfitDay * 30) : null;
+    const cashflows = [-capex].concat(Array(s.projectYears).fill(annualNet));
+    const npv = cashflows.reduce((a, cf, t) => a + cf / Math.pow(1 + s.discountRate, t), 0);
+    return { firmKW, aiKW, btcKW, numGpus, numMiners, siteMW, btcRevenue, aiRevenue, carbonRevenue,
+      fuelCost, gensetOm, labor, softwareFee, netProfitDay, annualNet, capex, paybackMonths, npv,
+      irr: irrCalc(cashflows), co2eYear: fuelMcfDay * CO2E_AVOIDED_PER_MCF * 365 };
+  }
+  function irrCalc(cf) {
+    if (!(cf.some(x => x > 0) && cf.some(x => x < 0))) return null;
+    let r = 0.1;
+    for (let i = 0; i < 200; i++) {
+      let f = 0, d = 0;
+      for (let t = 0; t < cf.length; t++) { f += cf[t] / Math.pow(1 + r, t); if (t > 0) d -= t * cf[t] / Math.pow(1 + r, t + 1); }
+      if (d === 0 || !isFinite(f)) return null;
+      const step = f / d; r -= step;
+      if (r <= -0.9999) return null;
+      if (Math.abs(step) < 1e-7) return (r > -0.9999 && r < 100) ? r : null;
+    }
+    return null;
+  }
+
+  // --- sensitivity (mirrors roi.py SENSITIVITY_AXES) ---
+  const AXES = [
+    { key: "btcPrice", label: "BTC Price", low: 40000, high: 130000 },
+    { key: "hashpricePerThDay", label: "Hashprice", low: 0.02, high: 0.10 },
+    { key: "gpuRentalPerHr", label: "GPU Rental", low: 1.0, high: 6.0 },
+    { key: "captureFraction", label: "AI Capture", low: 0.40, high: 0.85 },
+    { key: "gasPricePerMcf", label: "Gas Price", low: -1.0, high: 5.0 },
+  ];
+  function tornado() {
+    const rows = AXES.map(a => {
+      const lo = computeRoi({ ...state, [a.key]: a.low }).npv;
+      const hi = computeRoi({ ...state, [a.key]: a.high }).npv;
+      return { label: a.label, lo, hi, swing: Math.abs(hi - lo) };
+    }).sort((x, y) => y.swing - x.swing);
+    const base = computeRoi(state).npv;
+    const all = rows.flatMap(r => [r.lo, r.hi]).concat(base);
+    const min = Math.min(...all), max = Math.max(...all), span = (max - min) || 1;
+    const X = (v) => ((v - min) / span) * 100;
+    $("tornado").innerHTML = rows.map(r => {
+      const a = X(Math.min(r.lo, r.hi)), b = X(Math.max(r.lo, r.hi));
+      return `<div class="torn-row"><span class="name">${r.label}</span>
+        <div class="torn-track"><div class="torn-seg" style="left:${a}%;width:${Math.max(2, b - a)}%"></div>
+        <div class="torn-base" style="left:${X(base)}%"></div></div>
+        <span class="swing">${moneyM(r.swing)}</span></div>`;
+    }).join("");
+  }
+
+  // --- render ---
+  function render() {
+    const o = computeRoi(state);
+    // hero
+    $("hPayback").innerHTML = o.paybackMonths == null ? '<span class="bad">never</span>'
+      : (o.paybackMonths / 12).toFixed(1) + ' <small>yr</small>';
+    $("hIrr").innerHTML = o.irr == null ? '<span class="bad">n/a</span>' : pct(o.irr);
+    $("hNpvLbl").textContent = `NPV (${state.projectYears} yr @ ${pct(state.discountRate)})`;
+    $("hNpv").innerHTML = `<span class="${o.npv < 0 ? 'bad' : ''}">${moneyM(o.npv)}</span>`;
+    $("hNet").innerHTML = `<span class="${o.netProfitDay < 0 ? 'bad' : ''}">${money(o.netProfitDay)}</span>`;
+    // revenue split
+    const tot = Math.max(1e-9, o.aiRevenue + o.btcRevenue);
+    const aiPct = o.aiRevenue / tot * 100;
+    $("splitBar").innerHTML = `<div class="ai seg-lbl" style="width:${aiPct}%">${aiPct > 12 ? Math.round(aiPct) + '% AI' : ''}</div>
+      <div class="btc seg-lbl" style="width:${100 - aiPct}%">${100 - aiPct > 12 ? Math.round(100 - aiPct) + '% BTC' : ''}</div>`;
+    $("legAi").textContent = money(o.aiRevenue) + "/d";
+    $("legBtc").textContent = money(o.btcRevenue) + "/d";
+    $("rAi").textContent = money(o.aiRevenue);
+    $("rBtc").textContent = money(o.btcRevenue);
+    $("rCarbon").textContent = o.carbonRevenue > 0 ? money(o.carbonRevenue) : "off";
+    $("rCarbon").className = "val " + (o.carbonRevenue > 0 ? "pos" : "");
+    $("cFuel").textContent = (o.fuelCost <= 0 ? "+" : "-") + money(Math.abs(o.fuelCost));
+    $("cFuel").className = "val " + (o.fuelCost <= 0 ? "pos" : "neg");
+    $("cOm").textContent = "-" + money(o.gensetOm + o.labor);
+    $("cSw").textContent = "-" + money(o.softwareFee);
+    $("cNet").textContent = money(o.netProfitDay);
+    $("cNet").className = "val " + (o.netProfitDay < 0 ? "neg" : "pos");
+    // build
+    $("siteDesc").textContent = o.siteMW.toFixed(2) + " MW dual-workload pad";
+    $("bFirm").textContent = Math.round(o.firmKW) + " kW";
+    $("bGpu").textContent = o.numGpus.toLocaleString();
+    $("bMiner").textContent = o.numMiners.toLocaleString();
+    $("bCapex").textContent = moneyM(o.capex);
+    $("bCo2").textContent = Math.round(o.co2eYear).toLocaleString() + " tCO₂e/yr";
+    tornado();
+  }
+
+  // --- build sliders from API metadata ---
+  function buildSliders() {
+    const tiers = { 1: "Market — the swing inputs", 2: "Operating assumptions", 3: "Site & finance" };
+    let html = "";
+    [1, 2, 3].forEach(t => {
+      html += `<div class="group-h">${tiers[t]}</div>`;
+      sliders.filter(s => s.tier === t).forEach(s => {
+        html += `<div class="ctrl"><div class="row"><label>${s.label}</label><span class="v" id="v_${s.key}"></span></div>
+          <input type="range" id="s_${s.key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[s.key]}">
+          <div class="cite">${s.cite}</div></div>`;
+      });
+    });
+    $("sliders").innerHTML = html;
+    sliders.forEach(s => {
+      const el = $("s_" + s.key);
+      el.oninput = () => { state[s.key] = parseFloat(el.value); updateSliderLabel(s); render(); };
+      updateSliderLabel(s);
+    });
+  }
+  function updateSliderLabel(s) {
+    const v = state[s.key];
+    let disp;
+    if (s.unit === "$") disp = "$" + v.toLocaleString();
+    else if (s.unit === "fraction") disp = (v * 100).toFixed(0) + "%";
+    else if (s.unit === "$/TH/day") disp = "$" + v.toFixed(3);
+    else disp = v.toLocaleString() + " " + s.unit;
+    $("v_" + s.key).textContent = disp;
+  }
+
+  // --- segmented toggles ---
+  function wireSeg(id, fn) {
+    const seg = $(id);
+    seg.querySelectorAll("button").forEach(b => b.onclick = () => {
+      seg.querySelectorAll("button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on"); fn(b); render();
+    });
+  }
+  wireSeg("minerSeg", b => { state.minerHashrateTh = +b.dataset.h; state.minerPowerKw = +b.dataset.p; state.minerCapex = +b.dataset.c; });
+  wireSeg("feeSeg", b => { state.softwareFeeMode = b.dataset.m; });
+  wireSeg("carbonSeg", b => { state.carbonCreditEnabled = b.dataset.c === "on"; state.carbonPricePerTonne = 20; });
+
+  // --- boot: pull authoritative defaults + slider metadata from the API ---
+  async function boot() {
+    try {
+      const r = await fetch(apiBase() + "/api/roi/defaults");
+      const data = await r.json();
+      state = data.values; sliders = data.sliders;
+      buildSliders(); render();
+      $("foot").innerHTML = "Defaults from the June-2026 techno-economic report. The Python model "
+        + "(<span class='mono'>app/services/roi.py</span>) is the single source of truth — this page mirrors it and "
+        + "loads its defaults live from <span class='mono'>/api/roi/defaults</span>. Carbon credits &amp; real-time-inference AI "
+        + "are off-by-default upside; base case is batch/training AI at a 65% capture haircut, near-zero gas, 92% uptime.";
+    } catch (e) {
+      $("foot").textContent = "Could not reach the backend API. Open this page from the deployed backend URL.";
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
