@@ -188,6 +188,14 @@ PRESETS = [
             "remote_ai_capture_fraction": 0.60, "btc_uptime": 0.96,
         },
     },
+    {
+        "id": "pessimist", "label": "Pessimist mode (stress test)",
+        "cite": "report §1/§2/§6 — bear case: hashprice $26, GPU $1.80, capture 0.50",
+        "overrides": {
+            "hashprice_usd_per_ph_day": 26, "gpu_rental_usd_per_hour": 1.80,
+            "remote_ai_capture_fraction": 0.50, "btc_uptime": 0.92,
+        },
+    },
 ]
 
 

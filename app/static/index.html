@@ -324,6 +324,31 @@
   .roi-assume .alist { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:5px 24px; font-size:11px; color:var(--txt-faint); font-family:var(--mono); }
   @media(max-width:880px){ .roi-assume .alist { grid-template-columns:1fr; } }
   .roi-assume .alist b { color:var(--txt-dim); }
+  .roi-disclaimer { font-size:11px; color:var(--txt-faint); margin-top:6px; font-style:italic; }
+  .roi-actions { display:flex; gap:8px; margin-top:8px; }
+  .roi-seednote { font-size:11px; color:var(--green); font-family:var(--mono); margin-top:6px; min-height:14px; }
+
+  /* ===== Print: one tidy page for a leave-behind ===== */
+  @media print {
+    @page { margin: 12mm; }
+    html {
+      --bg:#fff; --panel:#fff; --panel-2:#fff; --panel-hi:#f4f4f4;
+      --line:#ccc; --line-2:#bbb; --txt:#000; --txt-dim:#333; --txt-faint:#666;
+      --accent:#c2560a; --cyan:#0d6ea8; --green:#0a7a4f;
+    }
+    body { background:#fff !important; }
+    .wrap { padding:0; max-width:none; }
+    /* hide everything that isn't the ROI leave-behind */
+    .tabs, #viewOps, .statusbar, .pop, #toasts, #connPill, #themeBtn,
+    .stat-strip, .roi-actions, #roiInputsCard, .fee-toggle,
+    .roi-region label, .roi-region select { display:none !important; }
+    #viewRoi { display:block !important; }
+    .sim-badge { display:inline-flex !important; }   /* keep it honest on paper */
+    .card, .roi-hero, .roi-assume, .mm { box-shadow:none !important; border:1px solid #ccc !important; break-inside:avoid; }
+    .roi-assume[open] .alist, .roi-assume .alist { display:grid !important; }
+    .roi-assume summary { list-style:none; }
+    a[href]:after { content:""; }   /* no URL clutter */
+  }
 </style>
 </head>
 <body>
@@ -441,10 +466,16 @@
       <div>
         <h2 class="roi-title">Per-Site ROI — Dual-Workload Arbitrage</h2>
         <div class="roi-sub">Stranded/flare gas powers a generator running BOTH interruptible Bitcoin ASICs and firmed AI/HPC GPUs. Every number is computed live by the backend economics engine — defaults &amp; citations come from the June-2026 techno-economic report.</div>
+        <div class="roi-disclaimer">Illustrative model — defaults sourced and editable; not investment advice.</div>
       </div>
       <div class="roi-region">
         <label>Region preset</label>
         <select id="roiPreset"><option value="">Custom</option></select>
+        <div class="roi-actions">
+          <button class="pill" id="roiLive" title="Seed the gas-flow slider from the live PLC reading">⚡ Use live gas flow</button>
+          <button class="pill" id="roiPrint" title="Print or save the panel as a one-page PDF">🖨 Print</button>
+        </div>
+        <div class="roi-seednote" id="roiSeedNote"></div>
       </div>
     </div>
 
@@ -487,7 +518,7 @@
     <div class="section-gap"></div>
 
     <!-- inputs -->
-    <div class="card">
+    <div class="card" id="roiInputsCard">
       <div class="panel-h"><h2>Inputs</h2><span class="desc">drag — recomputes on the server (debounced)</span></div>
       <div class="roi-cols" id="roiSliders">Loading defaults…</div>
       <div class="fee-toggle">
@@ -961,6 +992,37 @@
     $("roiFeeSeg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
     b.classList.add("on"); state.softwareFeeMode = b.dataset.m; feeDim(); calc();
   });
+
+  // Live tie-in: seed the gas-flow slider from the current PLC reading.
+  $("roiLive").onclick = async () => {
+    if (!fields.length) return;
+    try {
+      const reading = (await (await fetch("/api/plc/latest")).json()).reading;
+      const kw = reading.generatorKw;
+      const f = fields.find((x) => x.key === "gasMcfPerDay");
+      let mcf = Math.round(kw * 24 / state.kwhPerMcf);
+      mcf = Math.max(f.min, Math.min(f.max, mcf));
+      state.gasMcfPerDay = mcf;
+      $("ri_gasMcfPerDay").value = mcf;
+      $("rv_gasMcfPerDay").textContent = fmt(f, mcf);
+      $("roiPreset").value = "";
+      const note = $("roiSeedNote");
+      note.style.color = "var(--green)";
+      note.textContent = `Seeded from live PLC: ${kw.toFixed(1)} kW → ${mcf.toLocaleString()} Mcf/day`;
+      calc();
+    } catch (e) {
+      const note = $("roiSeedNote");
+      note.style.color = "var(--red)";
+      note.textContent = "Could not read live PLC.";
+    }
+  };
+
+  // Print / Save PDF: force the assumptions open so citations are on the page.
+  $("roiPrint").onclick = () => {
+    const d = document.querySelector(".roi-assume");
+    if (d) d.open = true;
+    window.print();
+  };
 
   function calc() {
     clearTimeout(deb);
