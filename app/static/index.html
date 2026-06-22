@@ -256,6 +256,74 @@
   .toast.err { border-left-color: var(--red); } .toast.ok { border-left-color: var(--green); }
   @keyframes slideIn { from{ transform: translateX(20px); opacity:0 } }
   .section-gap { height:14px; }
+
+  /* ===== View tabs ===== */
+  .tabs { display:flex; gap:6px; margin:0 0 16px; border-bottom:1px solid var(--line); }
+  .tab { background:none; border:0; border-bottom:2px solid transparent; color:var(--txt-dim); padding:12px 18px; font-size:14px; font-weight:600; cursor:pointer; font-family:var(--sans); }
+  .tab:hover { color:var(--txt); }
+  .tab.on { color:var(--accent); border-bottom-color:var(--accent); }
+
+  /* ===== ROI head ===== */
+  .roi-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px; flex-wrap:wrap; }
+  .roi-title { font-size:20px; margin:0; font-weight:700; }
+  .roi-sub { font-size:12px; color:var(--txt-dim); margin-top:4px; max-width:720px; }
+  .roi-region { display:flex; flex-direction:column; gap:4px; }
+  .roi-region label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--txt-dim); }
+  .roi-region select { background:var(--panel-2); border:1px solid var(--line-2); color:var(--txt); border-radius:9px; padding:9px 12px; font-size:13px; font-family:var(--sans); min-width:210px; }
+
+  /* ===== HERO with/without (the money shot) ===== */
+  .roi-hero { display:grid; grid-template-columns:1fr auto 1fr 1.25fr; align-items:center; gap:20px; padding:22px 24px; margin-bottom:14px; }
+  @media(max-width:1080px){ .roi-hero { grid-template-columns:1fr; } .hero-vs{ display:none; } }
+  .hero-side { text-align:center; }
+  .hero-side .hl { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--txt-dim); }
+  .hero-side .hv { font-family:var(--mono); font-size:34px; font-weight:700; margin-top:6px; }
+  .hero-side .hv.accent { color:var(--green); }
+  .hero-side .hs { font-size:11px; color:var(--txt-faint); margin-top:2px; }
+  .hero-vs .arrow { font-size:30px; color:var(--accent); }
+  .hero-uplift { background:linear-gradient(135deg,var(--accent-soft),rgba(46,230,166,.07)); border:1px solid rgba(255,122,26,.45); border-radius:12px; padding:14px 18px; text-align:center; }
+  .hero-uplift .ul-big { font-family:var(--mono); font-size:25px; font-weight:800; color:var(--accent); }
+  .hero-uplift .ul-pct { font-family:var(--mono); font-size:16px; color:var(--green); font-weight:700; }
+  .hero-uplift .ul-lbl { font-size:10px; color:var(--txt-dim); text-transform:uppercase; letter-spacing:.8px; margin-top:3px; }
+  .hero-uplift .ul-fee { font-size:11px; color:var(--txt-faint); margin-top:9px; border-top:1px solid var(--line); padding-top:9px; }
+  .hero-uplift .ul-fee b { color:var(--txt); }
+
+  /* ===== secondary metrics ===== */
+  .roi-metrics { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:14px; }
+  @media(max-width:1080px){ .roi-metrics { grid-template-columns:repeat(3,1fr); } }
+  @media(max-width:680px){ .roi-metrics { grid-template-columns:repeat(2,1fr); } }
+  .mm { padding:14px 16px; } .mm .ml { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--txt-dim); }
+  .mm .mv { font-family:var(--mono); font-size:22px; font-weight:650; margin-top:6px; } .mm .mv .bad { color:var(--red); }
+
+  /* ===== revenue split ===== */
+  .rsplit { padding:16px 18px; }
+  .rsplit .bar { display:flex; height:32px; border-radius:9px; overflow:hidden; border:1px solid var(--line-2); }
+  .rsplit .ai { background:linear-gradient(90deg,#1f7fb8,var(--cyan)); } .rsplit .btc { background:linear-gradient(90deg,#b8550f,var(--accent)); }
+  .rsplit .sl { display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#06121a; font-family:var(--mono); min-width:0; }
+  .rsplit .leg { display:flex; gap:18px; margin-top:10px; font-size:12px; color:var(--txt-dim); flex-wrap:wrap; align-items:center; }
+  .rsplit .leg i { width:12px; height:12px; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:6px; }
+  .rsplit .build { margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--txt-dim); }
+
+  /* ===== inputs (grouped sliders) ===== */
+  .roi-cols { display:grid; grid-template-columns:1fr 1fr; gap:2px 30px; padding:10px 18px 16px; }
+  @media(max-width:880px){ .roi-cols { grid-template-columns:1fr; } }
+  .roi-grp-h { grid-column:1/-1; font-size:11px; text-transform:uppercase; letter-spacing:1.3px; color:var(--accent); font-weight:700; margin-top:12px; padding-top:8px; border-top:1px solid var(--line); }
+  .rs { padding:7px 0; }
+  .rs-top { display:flex; justify-content:space-between; align-items:baseline; }
+  .rs-lbl { font-size:13px; font-weight:600; } .rs-val { font-family:var(--mono); font-size:13px; color:var(--cyan); }
+  .rs-i { color:var(--txt-faint); cursor:help; font-size:11px; }
+  .rs input[type=range] { width:100%; margin:6px 0 0; accent-color:var(--accent); height:4px; }
+  .rs.dim { opacity:.35; }
+  .fee-toggle { display:flex; align-items:center; gap:10px; padding:12px 18px; border-top:1px solid var(--line); font-size:13px; color:var(--txt-dim); }
+  .seg { display:inline-flex; border:1px solid var(--line-2); border-radius:8px; overflow:hidden; }
+  .seg button { background:var(--panel-2); color:var(--txt-dim); border:0; padding:7px 12px; font-size:12px; cursor:pointer; font-family:var(--sans); }
+  .seg button.on { background:var(--accent); color:#1a0d00; font-weight:700; }
+
+  .roi-assume { margin-bottom:14px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px 18px; }
+  .roi-assume summary { cursor:pointer; font-weight:650; font-size:13px; color:var(--txt-dim); }
+  .roi-assume summary:hover { color:var(--txt); }
+  .roi-assume .alist { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:5px 24px; font-size:11px; color:var(--txt-faint); font-family:var(--mono); }
+  @media(max-width:880px){ .roi-assume .alist { grid-template-columns:1fr; } }
+  .roi-assume .alist b { color:var(--txt-dim); }
 </style>
 </head>
 <body>
@@ -281,11 +349,17 @@
       <span>Uptime <b id="uptime">—</b></span>
       <span id="clock">—</span>
     </div>
-    <a class="pill" href="/roi" title="Investor ROI calculator" style="text-decoration:none">📊 ROI Calculator</a>
     <button class="pill" id="connPill" title="Backend connection">⛭ <span id="connUrl">same-origin</span></button>
     <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
   </div>
 
+  <!-- View tabs -->
+  <div class="tabs">
+    <button class="tab on" data-view="ops">⚡ Live Operations</button>
+    <button class="tab" data-view="roi">📊 Per-Site ROI</button>
+  </div>
+
+  <div id="viewOps">
   <!-- Failsafe banner (shown when the generator faults) -->
   <div class="failsafe-banner" id="failsafeBanner">
     <span class="big">⚠</span>
@@ -358,6 +432,80 @@
         <div class="log-list" id="logList"></div>
       </div>
     </div>
+  </div>
+  </div><!-- /viewOps -->
+
+  <!-- ===== Per-Site ROI calculator ===== -->
+  <div id="viewRoi" style="display:none;">
+    <div class="roi-head">
+      <div>
+        <h2 class="roi-title">Per-Site ROI — Dual-Workload Arbitrage</h2>
+        <div class="roi-sub">Stranded/flare gas powers a generator running BOTH interruptible Bitcoin ASICs and firmed AI/HPC GPUs. Every number is computed live by the backend economics engine — defaults &amp; citations come from the June-2026 techno-economic report.</div>
+      </div>
+      <div class="roi-region">
+        <label>Region preset</label>
+        <select id="roiPreset"><option value="">Custom</option></select>
+      </div>
+    </div>
+
+    <!-- HERO: with vs without (the money shot) -->
+    <div class="card roi-hero">
+      <div class="hero-side"><div class="hl">Bitcoin-only (today)</div><div class="hv" id="rhWithout">—</div><div class="hs">net $/day</div></div>
+      <div class="hero-vs"><div class="arrow">→</div></div>
+      <div class="hero-side"><div class="hl">With Gatekeeper · AI + BTC</div><div class="hv accent" id="rhWith">—</div><div class="hs">net $/day</div></div>
+      <div class="hero-uplift">
+        <div class="ul-big" id="rhUpDelta">—</div>
+        <div class="ul-pct" id="rhUpPct">—</div>
+        <div class="ul-lbl">uplift the software unlocks</div>
+        <div class="ul-fee">software fee <b id="rhFeeDay">—</b>/day · <b id="rhFeeYr">—</b>/yr</div>
+      </div>
+    </div>
+
+    <!-- secondary metrics -->
+    <div class="roi-metrics">
+      <div class="card mm"><div class="ml">Payback</div><div class="mv" id="rmPayback">—</div></div>
+      <div class="card mm"><div class="ml">Project IRR</div><div class="mv" id="rmIrr">—</div></div>
+      <div class="card mm"><div class="ml">NPV</div><div class="mv" id="rmNpv">—</div></div>
+      <div class="card mm"><div class="ml">Annual net</div><div class="mv" id="rmAnnual">—</div></div>
+      <div class="card mm"><div class="ml">Site capex</div><div class="mv" id="rmCapex">—</div></div>
+      <div class="card mm"><div class="ml">CO₂e avoided/yr</div><div class="mv" id="rmCo2">—</div></div>
+    </div>
+
+    <!-- revenue split -->
+    <div class="card">
+      <div class="panel-h"><h2>Daily revenue split</h2><span class="desc">AI is the prize; Bitcoin is the interruptible floor</span></div>
+      <div class="rsplit">
+        <div class="bar" id="rSplitBar"></div>
+        <div class="leg">
+          <span><i style="background:var(--cyan)"></i>AI compute <b id="rLegAi" style="color:var(--txt)"></b></span>
+          <span><i style="background:var(--accent)"></i>Bitcoin <b id="rLegBtc" style="color:var(--txt)"></b></span>
+          <span class="build" id="rBuild"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- inputs -->
+    <div class="card">
+      <div class="panel-h"><h2>Inputs</h2><span class="desc">drag — recomputes on the server (debounced)</span></div>
+      <div class="roi-cols" id="roiSliders">Loading defaults…</div>
+      <div class="fee-toggle">
+        <span>Software fee basis:</span>
+        <div class="seg" id="roiFeeSeg">
+          <button data-m="per_mw_month" class="on">$/MW-month</button>
+          <button data-m="revenue_share">% revenue share</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- assumptions -->
+    <details class="roi-assume">
+      <summary>Assumptions &amp; sources — every default, with its citation</summary>
+      <div class="alist" id="roiAssume"></div>
+    </details>
   </div>
 
   <!-- Status bar -->
@@ -739,6 +887,129 @@
   refreshConnLabel();
   initialLoad();
   connect();
+})();
+</script>
+<script>
+/* Per-Site ROI panel — self-contained, vanilla, no storage. Engine is the
+   single source of truth: sliders/citations from /api/roi/defaults, numbers
+   from /api/roi/calculate (relative URLs, same-origin). */
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const moneyM = (v) => (v < 0 ? "-$" : "$") + (Math.abs(v) / 1e6).toFixed(2) + "M";
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+
+  // tab switching (ROI loads lazily so Live Operations stays instant)
+  let loaded = false;
+  document.querySelectorAll(".tab").forEach((t) => t.onclick = () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("on"));
+    t.classList.add("on");
+    const v = t.dataset.view;
+    $("viewOps").style.display = v === "ops" ? "" : "none";
+    $("viewRoi").style.display = v === "roi" ? "" : "none";
+    if (v === "roi" && !loaded) { loaded = true; boot(); }
+  });
+
+  let fields = [], presets = [], state = {}, deb = null;
+
+  function fmt(f, v) {
+    if (f.unit === "fraction") return (v * 100).toFixed(f.step < 0.01 ? 1 : 0) + "%";
+    const dec = f.step < 1 ? (f.step < 0.1 ? (f.step < 0.01 ? 3 : 2) : 1) : 0;
+    return v.toLocaleString(undefined, { maximumFractionDigits: dec }) + " " + f.unit;
+  }
+
+  function buildGroups() {
+    let html = "";
+    ["Energy", "Bitcoin", "AI/HPC", "Finance"].forEach((g) => {
+      html += `<div class="roi-grp-h">${g}</div>`;
+      fields.filter((f) => f.group === g).forEach((f) => {
+        html += `<div class="rs" id="rsw_${f.key}"><div class="rs-top">`
+          + `<span class="rs-lbl">${f.label} <span class="rs-i" title="${f.cite}">&#9432;</span></span>`
+          + `<span class="rs-val" id="rv_${f.key}"></span></div>`
+          + `<input type="range" id="ri_${f.key}" min="${f.min}" max="${f.max}" step="${f.step}" value="${state[f.key]}"></div>`;
+      });
+    });
+    $("roiSliders").innerHTML = html;
+    fields.forEach((f) => {
+      const el = $("ri_" + f.key);
+      el.oninput = () => { state[f.key] = parseFloat(el.value); $("rv_" + f.key).textContent = fmt(f, state[f.key]); calc(); };
+      $("rv_" + f.key).textContent = fmt(f, state[f.key]);
+    });
+    feeDim();
+  }
+  function feeDim() {
+    const perMw = state.softwareFeeMode === "per_mw_month";
+    const a = $("rsw_softwareFeePerMwMonth"), b = $("rsw_softwareRevenueSharePct");
+    if (a) a.classList.toggle("dim", !perMw);
+    if (b) b.classList.toggle("dim", perMw);
+  }
+
+  function buildPresets() {
+    const sel = $("roiPreset");
+    presets.forEach((p) => { const o = document.createElement("option"); o.value = p.id; o.textContent = p.label; sel.appendChild(o); });
+    sel.onchange = () => {
+      const p = presets.find((x) => x.id === sel.value);
+      if (!p) return;
+      Object.assign(state, p.overrides);
+      fields.forEach((f) => { const el = $("ri_" + f.key); if (el) { el.value = state[f.key]; $("rv_" + f.key).textContent = fmt(f, state[f.key]); } });
+      calc();
+    };
+  }
+
+  $("roiFeeSeg").querySelectorAll("button").forEach((b) => b.onclick = () => {
+    $("roiFeeSeg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on"); state.softwareFeeMode = b.dataset.m; feeDim(); calc();
+  });
+
+  function calc() {
+    clearTimeout(deb);
+    deb = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/roi/calculate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state) });
+        if (r.ok) render(await r.json());
+      } catch (e) { /* leave last values on screen */ }
+    }, 150);
+  }
+
+  function render(o) {
+    $("rhWithout").textContent = money(o.withoutDailyNet);
+    $("rhWith").textContent = money(o.withDailyNet);
+    $("rhUpDelta").textContent = "+" + money(o.upliftDaily) + "/day";
+    $("rhUpPct").textContent = o.upliftPct == null ? "" : "+" + Math.round(o.upliftPct * 100) + "%";
+    $("rhFeeDay").textContent = money(o.softwareFeeDay);
+    $("rhFeeYr").textContent = money(o.softwareFeeDay * 365);
+    $("rmPayback").innerHTML = o.paybackMonths == null ? '<span class="bad">never</span>' : Math.round(o.paybackMonths) + " mo";
+    $("rmIrr").innerHTML = o.irr == null ? '<span class="bad">n/a</span>' : pct(o.irr);
+    $("rmNpv").textContent = moneyM(o.npv);
+    $("rmAnnual").textContent = money(o.annualNet);
+    $("rmCapex").textContent = moneyM(o.capex);
+    $("rmCo2").textContent = Math.round(o.co2eTonnesPerYear).toLocaleString() + " t";
+    const tot = Math.max(1e-9, o.aiRevenueDay + o.btcRevenueDay), ai = o.aiRevenueDay / tot * 100;
+    $("rSplitBar").innerHTML = `<div class="ai sl" style="width:${ai}%">${ai > 12 ? Math.round(ai) + "% AI" : ""}</div>`
+      + `<div class="btc sl" style="width:${100 - ai}%">${100 - ai > 12 ? Math.round(100 - ai) + "% BTC" : ""}</div>`;
+    $("rLegAi").textContent = money(o.aiRevenueDay) + "/d";
+    $("rLegBtc").textContent = money(o.btcRevenueDay) + "/d";
+    $("rBuild").textContent = `${o.gpuCount.toLocaleString()} GPUs · ${o.minerCount.toLocaleString()} miners · ${(o.btcHashrateThS / 1000).toFixed(1)} PH/s · ${(o.availableKw / 1000).toFixed(2)} MW`;
+  }
+
+  function buildAssume() {
+    let html = fields.map((f) => `<div><b>${f.label}:</b> ${fmt(f, state[f.key])} — ${f.cite}</div>`).join("");
+    html += "<div><b>BTC price:</b> bundled inside hashprice (report §1)</div>";
+    html += "<div><b>Labor:</b> $150/day per site (report §4)</div>";
+    html += "<div><b>CO₂e basis:</b> 0.073 tCO₂e/Mcf flared × 63% reduction (report §3, World Bank 2025)</div>";
+    $("roiAssume").innerHTML = html;
+  }
+
+  async function boot() {
+    try {
+      const data = await (await fetch("/api/roi/defaults")).json();
+      fields = data.fields; presets = data.presets;
+      fields.forEach((f) => state[f.key] = f.value);
+      state.softwareFeeMode = "per_mw_month";
+      buildGroups(); buildPresets(); buildAssume(); calc();
+    } catch (e) { $("roiSliders").textContent = "Could not reach the backend API."; }
+  }
 })();
 </script>
 </body>

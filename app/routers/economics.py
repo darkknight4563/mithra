@@ -33,6 +33,7 @@ async def defaults() -> dict:
     fields = [
         {
             "key": to_camel(key),
+            "group": meta["group"],
             "value": getattr(base, key),
             "min": meta["min"],
             "max": meta["max"],

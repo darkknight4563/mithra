@@ -70,11 +70,5 @@ async def health() -> HealthResponse:
 
 @app.get("/", include_in_schema=False)
 async def dashboard() -> FileResponse:
-    """Serve the bundled control-room dashboard at the root URL (same-origin)."""
+    """Serve the bundled control-room dashboard (now incl. the ROI panel)."""
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
-
-
-@app.get("/roi", include_in_schema=False)
-async def roi_calculator() -> FileResponse:
-    """Serve the investor-facing dual-workload ROI calculator."""
-    return FileResponse(os.path.join(STATIC_DIR, "roi.html"))

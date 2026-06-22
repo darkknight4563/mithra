@@ -76,68 +76,80 @@ ECONOMIC_DEFAULTS = {
 # The engine owns this so the frontend builds sliders from one place. Keys are
 # snake_case (match ECONOMIC_DEFAULTS); the API emits them camelCase.
 FIELD_META = {
+    # ---- Energy ----
     "gas_mcf_per_day": {
-        "label": "Gas Flow", "min": 0, "max": 20000, "step": 100,
+        "group": "Energy", "label": "Gas Flow", "min": 0, "max": 20000, "step": 100,
         "unit": "Mcf/day", "cite": "report §4 — 1 MW pad ~2,000 Mcf/day",
     },
     "gas_cost_usd_per_mcf": {
-        "label": "Gas Cost", "min": -1.0, "max": 5.0, "step": 0.1,
+        "group": "Energy", "label": "Gas Cost", "min": -1.0, "max": 5.0, "step": 0.1,
         "unit": "$/Mcf", "cite": "report §3 — stranded ~$0; negative if penalty",
     },
     "gas_variability": {
-        "label": "Gas Variability", "min": 0.0, "max": 0.4, "step": 0.01,
+        "group": "Energy", "label": "Gas Variability", "min": 0.0, "max": 0.4, "step": 0.01,
         "unit": "fraction", "cite": "report §1 — remote uptime 90-95%",
     },
-    "hashprice_usd_per_ph_day": {
-        "label": "Hashprice", "min": 20, "max": 100, "step": 1,
-        "unit": "$/PH/day", "cite": "report §1 — ~$35-38/PH/day (Jun 2026)",
-    },
-    "miner_efficiency_j_per_th": {
-        "label": "Miner Efficiency", "min": 9.5, "max": 25, "step": 0.5,
-        "unit": "J/TH", "cite": "report §1 — S21-class 15-17.5 J/TH",
-    },
-    "gpu_rental_usd_per_hour": {
-        "label": "GPU Rental", "min": 1.0, "max": 6.0, "step": 0.05,
-        "unit": "$/GPU-hr", "cite": "report §2 — H100 ~$2.43-2.63/hr",
-    },
-    "remote_ai_capture_fraction": {
-        "label": "Remote AI Capture", "min": 0.40, "max": 0.85, "step": 0.01,
-        "unit": "fraction", "cite": "report §2 — modeled 50-75%",
-    },
-    "ai_baseload_target": {
-        "label": "AI Share of Firm kW", "min": 0.0, "max": 1.0, "step": 0.05,
-        "unit": "fraction", "cite": "report §4 — AI baseload, BTC the rest",
-    },
     "kwh_per_mcf": {
-        "label": "Electricity Yield", "min": 8, "max": 14, "step": 0.5,
+        "group": "Energy", "label": "Electricity Yield", "min": 8, "max": 14, "step": 0.5,
         "unit": "kWh/Mcf", "cite": "report §3 — 11 @35-40% genset eff",
     },
     "genset_capex_usd_per_kw": {
-        "label": "Genset Capex", "min": 1000, "max": 2500, "step": 50,
+        "group": "Energy", "label": "Genset Capex", "min": 1000, "max": 2500, "step": 50,
         "unit": "$/kW", "cite": "report §3 — recip ~$1,500/kW",
     },
+    # ---- Bitcoin ----
+    "hashprice_usd_per_ph_day": {
+        "group": "Bitcoin", "label": "Hashprice", "min": 20, "max": 100, "step": 1,
+        "unit": "$/PH/day", "cite": "report §1 — ~$35-38/PH/day; bundles BTC price",
+    },
+    "miner_efficiency_j_per_th": {
+        "group": "Bitcoin", "label": "Miner Efficiency", "min": 9.5, "max": 25, "step": 0.5,
+        "unit": "J/TH", "cite": "report §1 — S21-class 15-17.5 J/TH",
+    },
+    "miner_price_usd": {
+        "group": "Bitcoin", "label": "Miner Price", "min": 1500, "max": 9000, "step": 100,
+        "unit": "$/unit", "cite": "report §1 — S21 Pro $3-3.8k; XP Hydro ~$8k",
+    },
     "btc_uptime": {
-        "label": "BTC Uptime", "min": 0.85, "max": 0.99, "step": 0.01,
+        "group": "Bitcoin", "label": "BTC Uptime", "min": 0.85, "max": 0.99, "step": 0.01,
         "unit": "fraction", "cite": "report §1 — interruptible 90-95%",
     },
+    # ---- AI/HPC ----
+    "gpu_rental_usd_per_hour": {
+        "group": "AI/HPC", "label": "GPU Rental", "min": 1.0, "max": 6.0, "step": 0.05,
+        "unit": "$/GPU-hr", "cite": "report §2 — H100 ~$2.43-2.63/hr",
+    },
+    "gpu_price_usd": {
+        "group": "AI/HPC", "label": "GPU Price", "min": 15000, "max": 50000, "step": 1000,
+        "unit": "$/GPU", "cite": "report §2 — H100-class ~$25-30k",
+    },
+    "ai_baseload_target": {
+        "group": "AI/HPC", "label": "AI Share of Firm kW", "min": 0.0, "max": 1.0, "step": 0.05,
+        "unit": "fraction", "cite": "report §4 — AI baseload, BTC the rest",
+    },
+    "remote_ai_capture_fraction": {
+        "group": "AI/HPC", "label": "Remote AI Capture", "min": 0.40, "max": 0.85, "step": 0.01,
+        "unit": "fraction", "cite": "report §2 — modeled 50-75%",
+    },
     "ai_uptime": {
-        "label": "AI Uptime", "min": 0.90, "max": 0.999, "step": 0.005,
+        "group": "AI/HPC", "label": "AI Uptime", "min": 0.90, "max": 0.999, "step": 0.005,
         "unit": "fraction", "cite": "report §1/§2 — firmed power",
     },
+    # ---- Finance ----
     "discount_rate": {
-        "label": "Discount Rate", "min": 0.05, "max": 0.25, "step": 0.01,
+        "group": "Finance", "label": "Discount Rate", "min": 0.05, "max": 0.25, "step": 0.01,
         "unit": "fraction", "cite": "report §4 — 12%",
     },
     "project_life_years": {
-        "label": "Project Life", "min": 2, "max": 8, "step": 1,
+        "group": "Finance", "label": "Project Life", "min": 2, "max": 8, "step": 1,
         "unit": "years", "cite": "report §4 — 4-year life",
     },
     "software_fee_per_mw_month": {
-        "label": "Software Fee", "min": 0, "max": 500, "step": 10,
+        "group": "Finance", "label": "Software Fee", "min": 0, "max": 500, "step": 10,
         "unit": "$/MW/mo", "cite": "report §5 — $100-300/MW/mo",
     },
     "software_revenue_share_pct": {
-        "label": "Revenue Share", "min": 0.0, "max": 0.05, "step": 0.005,
+        "group": "Finance", "label": "Revenue Share", "min": 0.0, "max": 0.05, "step": 0.005,
         "unit": "fraction", "cite": "report §5 — 1-3% of gross",
     },
 }
@@ -378,6 +390,8 @@ class RoiInputs(BaseModel):
     ai_uptime: float = _slider("ai_uptime")
     discount_rate: float = _slider("discount_rate")
     project_life_years: int = _slider("project_life_years")
+    miner_price_usd: float = _slider("miner_price_usd")
+    gpu_price_usd: float = _slider("gpu_price_usd")
     software_fee_per_mw_month: float = _slider("software_fee_per_mw_month")
     software_revenue_share_pct: float = _slider("software_revenue_share_pct")
 
@@ -385,9 +399,7 @@ class RoiInputs(BaseModel):
     btc_price_usd: float = ECONOMIC_DEFAULTS["btc_price_usd"]
     miner_kw: float = Field(ECONOMIC_DEFAULTS["miner_kw"], gt=0)
     miner_th: float = ECONOMIC_DEFAULTS["miner_th"]
-    miner_price_usd: float = Field(ECONOMIC_DEFAULTS["miner_price_usd"], ge=0)
     gpu_kw: float = Field(ECONOMIC_DEFAULTS["gpu_kw"], gt=0)
-    gpu_price_usd: float = Field(ECONOMIC_DEFAULTS["gpu_price_usd"], ge=0)
     gpu_fleet_kw: float = Field(ECONOMIC_DEFAULTS["gpu_fleet_kw"], ge=0)
     genset_om_usd_per_kwh: float = Field(ECONOMIC_DEFAULTS["genset_om_usd_per_kwh"], ge=0)
     labor_per_day: float = Field(ECONOMIC_DEFAULTS["labor_per_day"], ge=0)
