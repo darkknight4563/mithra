@@ -12,9 +12,10 @@ June 2026). Functions are pure (no I/O) and individually unit-testable.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 # World Bank 2025 Global Gas Flaring Tracker: 2024 flaring 151 bcm -> 389 Mt
 # CO2e. 389e6 t / 151e9 m3 = 2.58e-3 t/m3; 1 Mcf = 28.317 m3 -> ~0.073 tCO2e
@@ -69,6 +70,119 @@ ECONOMIC_DEFAULTS = {
     "software_fee_per_mw_month": 200.0,       # $/MW/mo; report §5 ($100-300; Luxor $100 benchmark)
     "software_revenue_share_pct": 0.02,       # 2% of gross compute revenue; report §5 (1-3%)
 }
+
+
+# Per-slider UI metadata + validation ranges + the runtime citation string.
+# The engine owns this so the frontend builds sliders from one place. Keys are
+# snake_case (match ECONOMIC_DEFAULTS); the API emits them camelCase.
+FIELD_META = {
+    "gas_mcf_per_day": {
+        "label": "Gas Flow", "min": 0, "max": 20000, "step": 100,
+        "unit": "Mcf/day", "cite": "report §4 — 1 MW pad ~2,000 Mcf/day",
+    },
+    "gas_cost_usd_per_mcf": {
+        "label": "Gas Cost", "min": -1.0, "max": 5.0, "step": 0.1,
+        "unit": "$/Mcf", "cite": "report §3 — stranded ~$0; negative if penalty",
+    },
+    "gas_variability": {
+        "label": "Gas Variability", "min": 0.0, "max": 0.4, "step": 0.01,
+        "unit": "fraction", "cite": "report §1 — remote uptime 90-95%",
+    },
+    "hashprice_usd_per_ph_day": {
+        "label": "Hashprice", "min": 20, "max": 100, "step": 1,
+        "unit": "$/PH/day", "cite": "report §1 — ~$35-38/PH/day (Jun 2026)",
+    },
+    "miner_efficiency_j_per_th": {
+        "label": "Miner Efficiency", "min": 9.5, "max": 25, "step": 0.5,
+        "unit": "J/TH", "cite": "report §1 — S21-class 15-17.5 J/TH",
+    },
+    "gpu_rental_usd_per_hour": {
+        "label": "GPU Rental", "min": 1.0, "max": 6.0, "step": 0.05,
+        "unit": "$/GPU-hr", "cite": "report §2 — H100 ~$2.43-2.63/hr",
+    },
+    "remote_ai_capture_fraction": {
+        "label": "Remote AI Capture", "min": 0.40, "max": 0.85, "step": 0.01,
+        "unit": "fraction", "cite": "report §2 — modeled 50-75%",
+    },
+    "ai_baseload_target": {
+        "label": "AI Share of Firm kW", "min": 0.0, "max": 1.0, "step": 0.05,
+        "unit": "fraction", "cite": "report §4 — AI baseload, BTC the rest",
+    },
+    "kwh_per_mcf": {
+        "label": "Electricity Yield", "min": 8, "max": 14, "step": 0.5,
+        "unit": "kWh/Mcf", "cite": "report §3 — 11 @35-40% genset eff",
+    },
+    "genset_capex_usd_per_kw": {
+        "label": "Genset Capex", "min": 1000, "max": 2500, "step": 50,
+        "unit": "$/kW", "cite": "report §3 — recip ~$1,500/kW",
+    },
+    "btc_uptime": {
+        "label": "BTC Uptime", "min": 0.85, "max": 0.99, "step": 0.01,
+        "unit": "fraction", "cite": "report §1 — interruptible 90-95%",
+    },
+    "ai_uptime": {
+        "label": "AI Uptime", "min": 0.90, "max": 0.999, "step": 0.005,
+        "unit": "fraction", "cite": "report §1/§2 — firmed power",
+    },
+    "discount_rate": {
+        "label": "Discount Rate", "min": 0.05, "max": 0.25, "step": 0.01,
+        "unit": "fraction", "cite": "report §4 — 12%",
+    },
+    "project_life_years": {
+        "label": "Project Life", "min": 2, "max": 8, "step": 1,
+        "unit": "years", "cite": "report §4 — 4-year life",
+    },
+    "software_fee_per_mw_month": {
+        "label": "Software Fee", "min": 0, "max": 500, "step": 10,
+        "unit": "$/MW/mo", "cite": "report §5 — $100-300/MW/mo",
+    },
+    "software_revenue_share_pct": {
+        "label": "Revenue Share", "min": 0.0, "max": 0.05, "step": 0.005,
+        "unit": "fraction", "cite": "report §5 — 1-3% of gross",
+    },
+}
+
+# Region presets — override maps from the report's regional notes (§6).
+PRESETS = [
+    {
+        "id": "permian", "label": "Permian (TX)",
+        "cite": "report §6 — primary US market; Texas miner-friendly",
+        "overrides": {
+            "gas_mcf_per_day": 3000, "gas_cost_usd_per_mcf": 0.5,
+            "remote_ai_capture_fraction": 0.65, "btc_uptime": 0.95,
+        },
+    },
+    {
+        "id": "bakken", "label": "Bakken (ND)",
+        "cite": "report §6 — remote, cold; stranded gas, lower connectivity",
+        "overrides": {
+            "gas_mcf_per_day": 2500, "gas_cost_usd_per_mcf": 0.0,
+            "remote_ai_capture_fraction": 0.55, "btc_uptime": 0.92,
+        },
+    },
+    {
+        "id": "vaca_muerta", "label": "Vaca Muerta (AR)",
+        "cite": "report §6 — midstream bottlenecks force flaring (negative gas)",
+        "overrides": {
+            "gas_mcf_per_day": 4000, "gas_cost_usd_per_mcf": -0.5,
+            "remote_ai_capture_fraction": 0.50, "gas_variability": 0.20,
+        },
+    },
+    {
+        "id": "oman_uae", "label": "Oman/UAE",
+        "cite": "report §6 — large flaring, capital available, zero-flare goals",
+        "overrides": {
+            "gas_mcf_per_day": 5000, "gas_cost_usd_per_mcf": 0.0,
+            "remote_ai_capture_fraction": 0.60, "btc_uptime": 0.96,
+        },
+    },
+]
+
+
+def _slider(key: str):
+    """Build a constrained pydantic Field for a slider input from FIELD_META."""
+    meta = FIELD_META[key]
+    return Field(ECONOMIC_DEFAULTS[key], ge=meta["min"], le=meta["max"])
 
 
 # ===========================================================================
@@ -241,46 +355,54 @@ def co2e_tonnes_avoided_per_year(
 # ===========================================================================
 
 class RoiInputs(BaseModel):
-    """All slider-able inputs, defaulted from ECONOMIC_DEFAULTS (report-sourced)."""
+    """All inputs, defaulted from ECONOMIC_DEFAULTS; slider fields are range-validated.
 
-    gas_mcf_per_day: float = ECONOMIC_DEFAULTS["gas_mcf_per_day"]
-    kwh_per_mcf: float = ECONOMIC_DEFAULTS["kwh_per_mcf"]
-    gas_cost_usd_per_mcf: float = ECONOMIC_DEFAULTS["gas_cost_usd_per_mcf"]
-    gas_variability: float = ECONOMIC_DEFAULTS["gas_variability"]
+    Accepts camelCase JSON in (and serializes camelCase out) via aliasing;
+    out-of-range slider values raise a 422 at the API boundary.
+    """
 
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    # slider fields (range-validated from FIELD_META)
+    gas_mcf_per_day: float = _slider("gas_mcf_per_day")
+    kwh_per_mcf: float = _slider("kwh_per_mcf")
+    gas_cost_usd_per_mcf: float = _slider("gas_cost_usd_per_mcf")
+    gas_variability: float = _slider("gas_variability")
+    hashprice_usd_per_ph_day: float = _slider("hashprice_usd_per_ph_day")
+    miner_efficiency_j_per_th: float = _slider("miner_efficiency_j_per_th")
+    gpu_rental_usd_per_hour: float = _slider("gpu_rental_usd_per_hour")
+    remote_ai_capture_fraction: float = _slider("remote_ai_capture_fraction")
+    ai_baseload_target: float = _slider("ai_baseload_target")
+    genset_capex_usd_per_kw: float = _slider("genset_capex_usd_per_kw")
+    btc_uptime: float = _slider("btc_uptime")
+    ai_uptime: float = _slider("ai_uptime")
+    discount_rate: float = _slider("discount_rate")
+    project_life_years: int = _slider("project_life_years")
+    software_fee_per_mw_month: float = _slider("software_fee_per_mw_month")
+    software_revenue_share_pct: float = _slider("software_revenue_share_pct")
+
+    # non-slider fields (sensible defaults; still overridable)
     btc_price_usd: float = ECONOMIC_DEFAULTS["btc_price_usd"]
-    hashprice_usd_per_ph_day: float = ECONOMIC_DEFAULTS["hashprice_usd_per_ph_day"]
-    miner_efficiency_j_per_th: float = ECONOMIC_DEFAULTS["miner_efficiency_j_per_th"]
-    miner_kw: float = ECONOMIC_DEFAULTS["miner_kw"]
+    miner_kw: float = Field(ECONOMIC_DEFAULTS["miner_kw"], gt=0)
     miner_th: float = ECONOMIC_DEFAULTS["miner_th"]
-    miner_price_usd: float = ECONOMIC_DEFAULTS["miner_price_usd"]
-
-    gpu_rental_usd_per_hour: float = ECONOMIC_DEFAULTS["gpu_rental_usd_per_hour"]
-    gpu_kw: float = ECONOMIC_DEFAULTS["gpu_kw"]
-    gpu_price_usd: float = ECONOMIC_DEFAULTS["gpu_price_usd"]
-    gpu_fleet_kw: float = ECONOMIC_DEFAULTS["gpu_fleet_kw"]
-    remote_ai_capture_fraction: float = ECONOMIC_DEFAULTS["remote_ai_capture_fraction"]
-    ai_baseload_target: float = ECONOMIC_DEFAULTS["ai_baseload_target"]
-
-    genset_capex_usd_per_kw: float = ECONOMIC_DEFAULTS["genset_capex_usd_per_kw"]
-    genset_om_usd_per_kwh: float = ECONOMIC_DEFAULTS["genset_om_usd_per_kwh"]
-    labor_per_day: float = ECONOMIC_DEFAULTS["labor_per_day"]
-
-    btc_uptime: float = ECONOMIC_DEFAULTS["btc_uptime"]
-    ai_uptime: float = ECONOMIC_DEFAULTS["ai_uptime"]
-
-    co2e_reduction_fraction: float = ECONOMIC_DEFAULTS["co2e_reduction_fraction"]
-
-    discount_rate: float = ECONOMIC_DEFAULTS["discount_rate"]
-    project_life_years: int = ECONOMIC_DEFAULTS["project_life_years"]
-
-    software_fee_mode: str = ECONOMIC_DEFAULTS["software_fee_mode"]
-    software_fee_per_mw_month: float = ECONOMIC_DEFAULTS["software_fee_per_mw_month"]
-    software_revenue_share_pct: float = ECONOMIC_DEFAULTS["software_revenue_share_pct"]
+    miner_price_usd: float = Field(ECONOMIC_DEFAULTS["miner_price_usd"], ge=0)
+    gpu_kw: float = Field(ECONOMIC_DEFAULTS["gpu_kw"], gt=0)
+    gpu_price_usd: float = Field(ECONOMIC_DEFAULTS["gpu_price_usd"], ge=0)
+    gpu_fleet_kw: float = Field(ECONOMIC_DEFAULTS["gpu_fleet_kw"], ge=0)
+    genset_om_usd_per_kwh: float = Field(ECONOMIC_DEFAULTS["genset_om_usd_per_kwh"], ge=0)
+    labor_per_day: float = Field(ECONOMIC_DEFAULTS["labor_per_day"], ge=0)
+    co2e_reduction_fraction: float = Field(
+        ECONOMIC_DEFAULTS["co2e_reduction_fraction"], ge=0, le=1
+    )
+    software_fee_mode: Literal["per_mw_month", "revenue_share"] = (
+        ECONOMIC_DEFAULTS["software_fee_mode"]
+    )
 
 
 class RoiResult(BaseModel):
-    """Everything the dashboard shows for one site scenario."""
+    """Everything the dashboard shows for one site scenario (camelCase JSON out)."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     # power build-out
     available_kw: float
@@ -297,6 +419,7 @@ class RoiResult(BaseModel):
     gross_revenue_day: float
 
     # cost (daily)
+    fuel_cost_day: float
     opex_day: float
     software_fee_day: float
     software_fee_monthly: float
@@ -312,8 +435,8 @@ class RoiResult(BaseModel):
     irr: Optional[float]
     npv: float
 
-    # ESG
-    co2e_tonnes_per_year: float
+    # ESG (explicit alias: to_camel would otherwise capitalise the E after "2")
+    co2e_tonnes_per_year: float = Field(alias="co2eTonnesPerYear")
 
     # with-vs-without (the software-fee justification)
     without_daily_net: float
@@ -390,6 +513,7 @@ def evaluate(inp: RoiInputs) -> RoiResult:
         btc_revenue_day=btc_rev,
         ai_revenue_day=ai_rev,
         gross_revenue_day=gross_rev,
+        fuel_cost_day=inp.gas_mcf_per_day * inp.gas_cost_usd_per_mcf,
         opex_day=opex,
         software_fee_day=fee_day,
         software_fee_monthly=fee_month,

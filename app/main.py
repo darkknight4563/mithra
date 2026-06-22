@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from app.config import settings
 from app.models import HealthResponse
 from app.routers import controller as controller_router
-from app.routers import demo, logs, miners, plc, roi, scenario, ws
+from app.routers import demo, economics, logs, miners, plc, scenario, ws
 from app.routers.ws import broadcast_snapshot
 from app.services.controller import controller
 
@@ -58,7 +58,7 @@ app.include_router(controller_router.router)
 app.include_router(logs.router)
 app.include_router(scenario.router)
 app.include_router(demo.router)
-app.include_router(roi.router)
+app.include_router(economics.router)
 app.include_router(ws.router)
 
 
