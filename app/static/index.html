@@ -284,7 +284,10 @@
   .hero-uplift .ul-big { font-family:var(--mono); font-size:25px; font-weight:800; color:var(--accent); }
   .hero-uplift .ul-pct { font-family:var(--mono); font-size:16px; color:var(--green); font-weight:700; }
   .hero-uplift .ul-lbl { font-size:10px; color:var(--txt-dim); text-transform:uppercase; letter-spacing:.8px; margin-top:3px; }
-  .hero-uplift .ul-fee { font-size:11px; color:var(--txt-faint); margin-top:9px; border-top:1px solid var(--line); padding-top:9px; }
+  .hero-uplift .ul-floor { font-size:11px; color:var(--txt-dim); margin-top:8px; }
+  .hero-uplift .ul-floor b { color:var(--green); }
+  .hero-uplift .ul-floor .ul-sub { color:var(--txt-faint); }
+  .hero-uplift .ul-fee { font-size:11px; color:var(--txt-faint); margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
   .hero-uplift .ul-fee b { color:var(--txt); }
 
   /* ===== secondary metrics ===== */
@@ -488,6 +491,7 @@
         <div class="ul-big" id="rhUpDelta">—</div>
         <div class="ul-pct" id="rhUpPct">—</div>
         <div class="ul-lbl">uplift the software unlocks</div>
+        <div class="ul-floor">Curtailment-only floor (no AI): <b id="rhFloorPct">—</b> · <b id="rhFloorDay">—</b>/day <span class="ul-sub">Luxor-benchmarked 8-14%</span></div>
         <div class="ul-fee">software fee <b id="rhFeeDay">—</b>/day · <b id="rhFeeYr">—</b>/yr</div>
       </div>
     </div>
@@ -1039,6 +1043,8 @@
     $("rhWith").textContent = money(o.withDailyNet);
     $("rhUpDelta").textContent = "+" + money(o.upliftDaily) + "/day";
     $("rhUpPct").textContent = o.upliftPct == null ? "" : "+" + Math.round(o.upliftPct * 100) + "%";
+    $("rhFloorPct").textContent = "+" + Math.round(o.dynamicUpliftPct * 100) + "%";
+    $("rhFloorDay").textContent = "+" + money(o.dynamicUpliftDaily) + "/day";
     $("rhFeeDay").textContent = money(o.softwareFeeDay);
     $("rhFeeYr").textContent = money(o.softwareFeeDay * 365);
     $("rmPayback").innerHTML = o.paybackMonths == null ? '<span class="bad">never</span>' : Math.round(o.paybackMonths) + " mo";
@@ -1060,6 +1066,7 @@
     html += "<div><b>BTC price:</b> bundled inside hashprice (report §1)</div>";
     html += "<div><b>Labor:</b> $150/day per site (report §4)</div>";
     html += "<div><b>CO₂e basis:</b> 0.073 tCO₂e/Mcf flared × 63% reduction (report §3, World Bank 2025)</div>";
+    html += "<div><b>Curtailment-only uplift:</b> 11% (Luxor Intelligent Miner 8-14% vs binary on/off, report §5)</div>";
     $("roiAssume").innerHTML = html;
   }
 

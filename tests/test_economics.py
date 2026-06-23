@@ -132,6 +132,9 @@ def test_with_vs_without_uplift_is_positive_and_first_class():
     assert r.uplift_daily > 0
     assert r.uplift_daily == pytest.approx(9709.9, abs=3)
     assert r.uplift_pct is not None and r.uplift_pct > 0
+    # Conservative floor: dynamic curtailment alone = 11% of the BTC-only net.
+    assert r.dynamic_uplift_pct == pytest.approx(0.11)
+    assert r.dynamic_uplift_daily == pytest.approx(r.without_daily_net * 0.11, rel=1e-6)
 
 
 def test_zero_gas_is_just_negative_opex_no_crash():

@@ -22,6 +22,12 @@ from pydantic.alias_generators import to_camel
 # per Mcf flared (report §3 Emissions/ESG, World Bank 18 Jul 2025).
 CO2E_TONNES_PER_MCF_FLARED = 0.073
 
+# Conservative, hard-comparable software uplift from dynamic ECONOMIC curtailment
+# alone (single-workload, no AI) — Luxor Intelligent Miner: "8-14% more
+# profitability vs binary on/off curtailment" (report §5). Midpoint = the
+# defensible floor of Gatekeeper's value even for a Bitcoin-only operator.
+DYNAMIC_BALANCING_UPLIFT = 0.11
+
 # ---------------------------------------------------------------------------
 # Single source of truth for every economic assumption. Each value is the
 # report's number; the comment cites the figure, source and date.
@@ -463,6 +469,9 @@ class RoiResult(BaseModel):
     with_daily_net: float
     uplift_daily: float
     uplift_pct: Optional[float]
+    # conservative, Luxor-benchmarked floor: dynamic curtailment alone (no AI)
+    dynamic_uplift_daily: float
+    dynamic_uplift_pct: float
 
 
 def _software_fee(
@@ -521,6 +530,8 @@ def evaluate(inp: RoiInputs) -> RoiResult:
     without_net = w0_rev - w0_opex
     uplift = daily_net - without_net
     uplift_pct = (uplift / without_net) if without_net > 0 else None
+    # Floor value: dynamic economic curtailment alone, even Bitcoin-only (§5).
+    dynamic_uplift_daily = max(0.0, without_net) * DYNAMIC_BALANCING_UPLIFT
 
     return RoiResult(
         available_kw=available_kw,
@@ -551,4 +562,6 @@ def evaluate(inp: RoiInputs) -> RoiResult:
         with_daily_net=daily_net,
         uplift_daily=uplift,
         uplift_pct=uplift_pct,
+        dynamic_uplift_daily=dynamic_uplift_daily,
+        dynamic_uplift_pct=DYNAMIC_BALANCING_UPLIFT,
     )
