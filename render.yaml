@@ -1,12 +1,15 @@
 # Render Blueprint for the Gatekeeper backend (FastAPI + WebSocket).
 #
-# Render's free web service supports WebSockets (wss://) out of the box — no
-# extra config needed. It also injects $PORT, which the start command binds to.
+# Render supports WebSockets (wss://) with no extra config, and injects $PORT.
 #
-# After the first deploy, edit ALLOWED_ORIGINS below (or in the Render dashboard)
-# to your real published Lovable domain. NOTE: the backend already allows any
-# *.lovable.app / *.lovableproject.com origin via a built-in CORS regex, so the
-# dashboard will work even before you set the exact value here.
+# There is deliberately NO `dockerCommand` here: Render's blueprint spec does not
+# document whether that field is shell-expanded, and an unexpanded literal
+# "$PORT" would fail the boot. The Dockerfile CMD is the single source of truth
+# for the start command — it is shell form, binds 0.0.0.0, expands ${PORT}, and
+# pins --workers 1.
+#
+# CORS: the dashboard is bundled and served same-origin from this service, so it
+# needs no cross-origin grant. The app's defaults allow localhost only, for dev.
 services:
   - type: web
     name: gatekeeper-backend
@@ -15,10 +18,8 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    # The start command. $PORT is provided by Render.
-    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      # Pinned so a deployed instance can never boot into LIVE/RealPlc. The app
+      # also defaults to SIMULATION (app/config.py) — this is belt and braces.
       - key: MODE
         value: SIMULATION
-      - key: ALLOWED_ORIGINS
-        value: "https://your-app.lovable.app,http://localhost:5173,http://localhost:3000"

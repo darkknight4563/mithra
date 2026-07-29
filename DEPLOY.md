@@ -50,50 +50,55 @@ HTTPS automatically, and **supports WebSockets** (your dashboard's live updates)
 
 ---
 
-## Part C — Point it at your Lovable site
+## Part C — Confirm the boot logs
 
-11. In Render, open your service → **Environment** (left sidebar).
-12. Find **`ALLOWED_ORIGINS`**. Click **Edit** and set it to your published
-    Lovable URL plus your local dev URLs, comma-separated, for example:
+There is no CORS to configure. The dashboard is bundled into this service and
+served same-origin from `/`, so there is no second frontend to point anywhere.
+
+11. In Render, open your service → **Logs**. On the first deploy, confirm all
+    three of these — don't infer them from the app merely responding:
 
     ```
-    https://your-app.lovable.app,http://localhost:5173,http://localhost:3000
+    INFO:     Started server process [<pid>]
+    INFO:     Application startup complete.
+    INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
     ```
 
-    Replace `your-app.lovable.app` with your real Lovable domain (open your live
-    Lovable site and copy the domain from the browser address bar).
-    Click **Save Changes** — Render redeploys automatically.
-
-    > You can skip this if you're in a hurry: the backend already accepts any
-    > `*.lovable.app` origin automatically. Setting it just makes it explicit.
+    * `0.0.0.0` — bound on all interfaces, as Render requires.
+    * a port that is **not 8000** (Render's injected `$PORT`, 10000 by default).
+      Seeing `8000` means `${PORT}` did not expand and Render is only reaching
+      you via port detection.
+    * exactly **one** `Started server process` and **no** `Started parent
+      process` line. Uvicorn never prints its worker count; a parent-process
+      line plus two server-process lines is what `--workers 2` looks like. Two
+      workers would mean two control loops fighting over one fleet.
 
 ---
 
-## Part D — Find your public URL and wire up the frontend
+## Part D — Find your public URL and verify it
 
-13. At the **top of your Render service page** you'll see the public URL, like:
+12. At the **top of your Render service page** you'll see the public URL, like:
 
     ```
     https://gatekeeper-backend.onrender.com
     ```
 
     (Your exact subdomain may differ if the name was taken — use whatever Render
-    shows. This is your **API base URL**.)
+    shows.)
 
-14. Confirm it works: open `https://gatekeeper-backend.onrender.com/health` in your
-    browser. You should see `{"status":"ok"}` (allow ~50s on the first hit while
-    it wakes up).
+13. Confirm it works: open `https://gatekeeper-backend.onrender.com/health` in your
+    browser. You should see `{"status":"ok"}` (on a Free instance allow ~1 minute
+    on the first hit while it wakes up).
 
-15. In **Lovable**, set the frontend environment variables (Project Settings →
-    Environment Variables, or your `.env`) to your new URLs:
+14. Run the full verification against the deployed URL — not localhost:
 
-    ```
-    VITE_API_BASE_URL=https://gatekeeper-backend.onrender.com
-    VITE_WS_URL=wss://gatekeeper-backend.onrender.com/ws
+    ```bash
+    python scripts/verify_live.py https://gatekeeper-backend.onrender.com
     ```
 
-    Save and let Lovable rebuild. Your dashboard is now talking to the live
-    backend — no more localhost or Codespace IDs.
+    It takes ~2.5 minutes (the scripted demo alone is ~82s) and checks the
+    dashboard, the WebSocket, the whole demo sequence, the failsafe, the ROI API,
+    and that only one controller owns the fleet.
 
 ---
 

@@ -21,16 +21,16 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # CORS. Comma-separated exact origins, plus a regex for the variable Lovable
-    # preview / GitHub Codespace hostnames.
+    # CORS — dev convenience only. The production dashboard is bundled and served
+    # same-origin from this app (app/main.py serves app/static/index.html), so it
+    # needs no cross-origin grant at all. Scope stays localhost: a standing
+    # wildcard for a third-party preview host, combined with allow_credentials,
+    # is dead config that reads like live config.
     allowed_origins: str = (
         "http://localhost:5173,http://localhost:3000,http://localhost:8080,"
         "http://127.0.0.1:5173,http://127.0.0.1:3000,http://127.0.0.1:8080"
     )
-    allowed_origin_regex: str = (
-        r"(https://.*\.(lovable\.app|lovable\.dev|lovableproject\.com|app\.github\.dev)"
-        r"|https?://(localhost|127\.0\.0\.1)(:\d+)?)"
-    )
+    allowed_origin_regex: str = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 
     # Operating mode. SIMULATION uses the in-process fake PLC; LIVE talks to real hardware.
     mode: Literal["SIMULATION", "LIVE"] = "SIMULATION"
