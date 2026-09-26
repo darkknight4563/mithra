@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive concept demo: supervisory control for islanded AI power plants on gas gensets.">
+<meta property="og:title" content="Mithra Island Lab">
+<meta property="og:image" content="/lab/film-poster.jpg">
+<title>Mithra Island Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --ground:#0d1215; --panel:#141c20; --panel-2:#1a2429; --line:#26333a; --line-2:#33434b;
+  --text:#dde3e5; --muted:#8b989e; --faint:#5d6b72;
+  --gas:#ec8c3e; --gas-soft:rgba(236,140,62,.14);
+  --gpu:#8fb8de; --ok:#6fbf8e; --warn:#e3c04f; --trip:#ec4d4f;
+  --display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{background:var(--ground);color:var(--text)}
+body{margin:0}
+img,video{max-width:100%}
+[hidden]{display:none!important}
+body{font-family:var(--body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--gpu)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--gas);outline-offset:2px}
+.wrap{padding-inline:16px;max-width:1360px;margin:0 auto}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- stage ---------- */
+.stage{position:relative;height:clamp(440px,70vh,760px);border-bottom:1px solid var(--line);overflow:hidden;background:#0d1215;touch-action:pan-y}
+.stage canvas{display:block;width:100%;height:100%;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.hud-title{position:absolute;left:16px;top:16px;max-width:min(470px,calc(100% - 32px));pointer-events:none}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gas)}
+.hud-title h1{font-family:var(--display);font-weight:900;font-size:clamp(40px,6vw,76px);line-height:.86;letter-spacing:.005em;margin:.18em 0 .22em;text-transform:uppercase;text-wrap:balance}
+.hud-title p{margin:0;color:#b9c3c7;font-size:14px;max-width:44ch;text-shadow:0 1px 8px #0d1215}
+.hud-read{position:absolute;right:16px;top:16px;text-align:right;pointer-events:none}
+.hud-read .hz{font-family:var(--display);font-weight:800;font-size:clamp(44px,6vw,72px);line-height:.9;font-variant-numeric:tabular-nums;transition:color .2s}
+.hud-read .hz small{font-size:.42em;color:var(--muted);margin-left:.15em}
+.hud-read .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:3px;border:1px solid var(--line-2);color:var(--muted);background:rgba(13,18,21,.7)}
+.chip i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.chip.ok{color:var(--ok);border-color:rgba(111,191,142,.4)}
+.chip.warn{color:var(--warn);border-color:rgba(227,192,79,.45)}
+.chip.trip{color:var(--trip);border-color:rgba(236,77,79,.55);background:rgba(236,77,79,.12)}
+.caption{position:absolute;left:16px;bottom:16px;max-width:min(560px,calc(100% - 32px));font-size:14px;background:rgba(13,18,21,.82);border:1px solid var(--line);border-left:3px solid var(--gas);padding:10px 14px;border-radius:3px;pointer-events:none;transition:opacity .3s}
+.caption b{color:#fff;font-weight:600}
+.banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .15s}
+.banner.on{opacity:1}
+.banner .big{font-family:var(--display);font-weight:900;font-size:clamp(36px,7vw,84px);letter-spacing:.02em;color:var(--trip);text-transform:uppercase;line-height:.9;text-shadow:0 0 30px rgba(236,77,79,.45)}
+.banner .sub{font-family:var(--mono);font-size:12px;color:#f3b3b4;letter-spacing:.06em;margin-top:8px}
+.tag{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-family:var(--mono);font-size:11px;line-height:1.35;color:#c9d2d6;background:rgba(13,18,21,.78);border:1px solid var(--line-2);padding:4px 7px;border-radius:2px;white-space:nowrap}
+.tag b{display:block;color:#fff;font-weight:500;letter-spacing:.04em}
+.tag::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:14px;background:var(--line-2)}
+.drag-hint{position:absolute;right:16px;bottom:16px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);pointer-events:none}
+
+/* ---------- console ---------- */
+.console{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:16px;padding-block:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px}
+.scope{padding:14px 14px 10px}
+.scope-head{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.scope-head h2,.ctl h2{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:2px;display:inline-block}
+.scope{display:flex;flex-direction:column}
+.scope-box{position:relative;flex:1;min-height:260px}
+#scope{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line);margin:10px -14px -10px;border-radius:0 0 4px 4px;overflow:hidden}
+.tile{background:var(--panel);padding:10px 14px}
+.tile .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .v small{font-size:12px;color:var(--muted);font-weight:400}
+.ctl{padding:14px;display:flex;flex-direction:column;gap:14px}
+.master{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
+.master button{font:600 13px var(--body);padding:10px 8px;background:transparent;color:var(--muted);border:0;cursor:pointer;letter-spacing:.02em}
+.master button[aria-pressed="true"]{background:var(--gas);color:#1a0f05}
+.master button:first-child[aria-pressed="true"]{background:var(--line-2);color:#fff}
+.layers{display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:3px;cursor:pointer;background:var(--panel-2)}
+.layer input{margin:3px 0 0;accent-color:var(--gas);width:15px;height:15px}
+.layer b{font-weight:600;font-size:13.5px}
+.layer span{grid-column:2;font-size:12.5px;color:var(--muted);line-height:1.4}
+.sliders{display:flex;flex-direction:column;gap:10px}
+.sl label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+.sl label output{font-family:var(--mono);color:var(--text)}
+.sl input[type=range]{width:100%;accent-color:var(--gas);margin:4px 0 0}
+.events{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{font:600 13px var(--body);padding:9px 10px;border-radius:3px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--text);cursor:pointer}
+.btn:hover{border-color:var(--gas)}
+.btn.primary{grid-column:1/-1;background:var(--gas-soft);border-color:rgba(236,140,62,.55);color:#ffd9b8}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- editorial ---------- */
+section.ed{padding-block:56px 8px;border-top:1px solid var(--line);margin-top:32px}
+.ed h2{font-family:var(--display);font-weight:800;font-size:clamp(34px,4.6vw,56px);line-height:.95;text-transform:uppercase;margin:.2em 0 .35em;text-wrap:balance;max-width:20ch}
+.lede{font-size:17px;color:#c3ccd0;max-width:64ch;margin:0 0 28px}
+.sites{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.site{padding:16px;display:flex;flex-direction:column;gap:12px}
+.site.pick{border-color:rgba(236,140,62,.6);background:linear-gradient(180deg,rgba(236,140,62,.08),transparent 45%),var(--panel)}
+.site h3{font-family:var(--display);font-weight:800;font-size:26px;line-height:1;text-transform:uppercase;margin:0}
+.site .where{font-size:12.5px;color:var(--muted);margin-top:4px}
+.site dl{margin:0;display:grid;gap:9px}
+.site dt{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.site dd{margin:1px 0 0;font-size:13.5px}
+.fit{display:flex;gap:6px;flex-wrap:wrap}
+.fit span{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:2px;border:1px solid var(--line-2);color:var(--faint);text-decoration:line-through}
+.fit span.y{color:var(--ok);border-color:rgba(111,191,142,.45);text-decoration:none}
+.fit span.m{color:var(--warn);border-color:rgba(227,192,79,.45);text-decoration:none}
+.verdict{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px}
+.verdict strong{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+.pick .verdict strong{color:var(--gas)}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:8px}
+.cols h3{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--gas);margin:0 0 8px}
+.cols p{margin:0 0 10px;color:#c3ccd0;font-size:14.5px}
+.cols ul{margin:0;padding-left:18px;color:#c3ccd0;font-size:14.5px}
+.cols li{margin-bottom:6px}
+.stat{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;color:#fff}
+.stat small{font-family:var(--mono);font-size:12px;font-weight:400;color:var(--muted);display:block;margin-top:4px;letter-spacing:.02em}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 36px}
+.stats .card{padding:16px}
+.note{font-size:12.5px;color:var(--faint);max-width:80ch}
+.film{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:#0e1417;max-width:1100px}
+.film video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0e1417}
+.layers-t{display:flex;flex-direction:column;gap:8px;margin:0 0 32px;max-width:1100px}
+.lr{display:grid;grid-template-columns:90px 200px 180px minmax(0,1fr);gap:4px 16px;align-items:baseline;padding:14px 16px;border:1px solid var(--line);border-radius:4px;background:var(--panel);font-size:14.5px;color:#c3ccd0}
+.lr b{color:#fff;font-size:16px}
+.lr .ln,.lr .lt{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
+.lr.hi{border-color:rgba(236,140,62,.6);background:linear-gradient(90deg,rgba(236,140,62,.10),transparent 60%),var(--panel)}
+.lr.hi .ln{color:var(--gas)}
+.contact{margin-top:28px;font-size:14px;color:var(--muted)}
+@media (max-width:760px){.lr{grid-template-columns:minmax(0,1fr)}}
+footer{padding-block:40px 56px;border-top:1px solid var(--line);margin-top:48px}
+footer h2{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+footer ol{margin:0;padding-left:20px;columns:2;column-gap:40px;font-size:12.5px;color:var(--muted)}
+footer li{margin-bottom:6px;break-inside:avoid}
+
+@media (max-width:1020px){
+  .sites{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .console{grid-template-columns:minmax(0,1fr)}
+  .cols{grid-template-columns:minmax(0,1fr);gap:18px}
+  footer ol{columns:1}
+}
+@media (max-width:560px){
+  .sites,.stats{grid-template-columns:minmax(0,1fr)}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hud-title p{display:none}
+  .hud-title{max-width:58%}
+  .hud-title h1{font-size:34px}
+  .hud-read .hz{font-size:38px}
+  .chip{font-size:10px;padding:3px 7px}
+  .caption{font-size:13px}
+  .tag{font-size:10px}
+  .drag-hint{display:none}
+  .scope-box{min-height:220px}
+}
+@media (prefers-reduced-motion:reduce){ .caption,.banner,.hud-read .hz{transition:none} }
+</style>
+
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="gl" aria-label="3D view of an islanded AI campus: gas gensets, battery, flexible miners and a GPU training hall"></canvas>
+  <div id="tags"></div>
+  <div class="hud-title">
+    <div class="eyebrow">Mithra Island Lab · 50 Hz islanded plant</div>
+    <h1>Engines alone<br>can't follow<br>a GPU</h1>
+    <p>An islanded AI power plant: twelve 11.2 MW-class gas gensets, a fast stabiliser and a 100 MW GPU hall. Every training step swings the load by tens of megawatts. Watch the bus frequency.</p>
+  </div>
+  <div class="hud-read">
+    <div class="lbl">Bus frequency</div>
+    <div class="hz" id="hzBig">50.00<small>Hz</small></div>
+    <div style="margin-top:8px"><span class="chip ok" id="stateChip"><i></i><span>Normal</span></span></div>
+  </div>
+  <div class="banner" id="banner"><div class="big">Bus tripped</div><div class="sub" id="bannerSub">Over-frequency · gensets offline · black start in 7 s</div></div>
+  <div class="caption" id="caption"><b>Mithra is off.</b> 100 MW of GPUs run on twelve 11.2 MW gas gensets with no stabiliser. Press <b>Checkpoint</b> and see what an 82 MW drop does, then turn Mithra on and try again.</div>
+  <div class="drag-hint">Drag to orbit</div>
+</div>
+
+<div class="wrap">
+  <div class="console">
+    <div class="card scope">
+      <div class="scope-head">
+        <h2>Oscilloscope · last 24 s</h2>
+        <div class="legend">
+          <span><i style="background:var(--gpu)"></i>GPU demand</span>
+          <span><i style="background:var(--gas)"></i>Genset output</span>
+          <span><i style="background:#c7cfd3"></i>Stabiliser</span>
+          <span><i style="background:#e8ecee"></i>Frequency</span>
+        </div>
+      </div>
+      <div class="scope-box"><canvas id="scope" aria-label="Live traces of load, genset output and bus frequency"></canvas></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">Trips</div><div class="v" id="tTrips">0</div></div>
+        <div class="tile"><div class="k">Compute lost</div><div class="v" id="tLost">0<small> s</small></div></div>
+        <div class="tile"><div class="k">Worst swing</div><div class="v" id="tSwing">±0.00<small> Hz</small></div></div>
+        <div class="tile"><div class="k">Smoothing energy</div><div class="v" id="tEnergy">0<small> kWh burned</small></div></div>
+      </div>
+    </div>
+
+    <div class="card ctl">
+      <h2>Controller</h2>
+      <div class="master" role="group" aria-label="Mithra controller">
+        <button id="mOff" aria-pressed="true">Mithra off</button>
+        <button id="mOn" aria-pressed="false">Mithra on</button>
+      </div>
+      <div class="layers">
+        <label class="layer"><input type="checkbox" id="lBess"><b>Layer 0 · fast stabiliser</b><span>35 MW kinetic or battery stabiliser absorbs the sub-second swings the engines can't.</span></label>
+        <label class="layer"><input type="checkbox" id="lFloor"><b>Data-centre signal · GPU power floor</b><span>Holds GPUs at 72% during sync gaps and ramps drops at 6%/s. Costs wasted energy.</span></label>
+        <label class="layer"><input type="checkbox" id="lFlex"><b>Flexible load · interruptible compute</b><span>30 MW of interruptible load idles at half power, soaks up drops and sheds on surges.</span></label>
+      </div>
+      <div class="sliders">
+        <div class="sl"><label for="sDepth">Training swing depth <output id="oDepth">25%</output></label><input type="range" id="sDepth" min="0" max="60" step="1" value="25"></div>
+        <div class="sl"><label for="sIt">GPU hall IT load <output id="oIt">100 MW</output></label><input type="range" id="sIt" min="40" max="130" step="5" value="100"></div>
+        <div class="sl"><label for="sGen">Gas gensets online <output id="oGen">12 × 11.2 MW</output></label><input type="range" id="sGen" min="8" max="16" step="1" value="12"></div>
+      </div>
+      <div class="events">
+        <button class="btn" id="bCkpt">Checkpoint</button>
+        <button class="btn" id="bCrash">Job crash</button>
+        <button class="btn primary" id="bStory">Play the 40-second story</button>
+      </div>
+    </div>
+  </div>
+  <p class="note">Concept demo with illustrative parameters, not Bergen or Piller data: gas genset inertia H = 1.5 s, isochronous PI governor with 0.7 s engine lag and 18%/s ramp limit, trip outside 47.5–51.5 Hz for 120 ms. It shows the shape of the problem. It is not a protection study.</p>
+
+  <section class="ed" id="film">
+    <div class="eyebrow">The film · 77 seconds</div>
+    <h2>From the problem to a proposal</h2>
+    <p class="lede">Why islanded AI plants need a supervisory layer above the stabiliser, and what an eight-week Phase 1 study with Bergen Engines On Land would deliver.</p>
+    <div class="film"><video id="filmv" controls preload="metadata" playsinline poster="/lab/film-poster.jpg"><source src="/lab/mithra-film.mp4" type="video/mp4"></video></div>
+  </section>
+
+  <section class="ed">
+    <div class="eyebrow">Three layers of control</div>
+    <h2>The layer above the stabiliser</h2>
+    <p class="lede">A fast stabiliser answers the milliseconds and the engine governors answer the seconds. Someone still has to decide how many engines run, how much reserve to hold for the next step, and what the data centre is about to do.</p>
+    <div class="layers-t" role="table" aria-label="Control layers">
+      <div class="lr" role="row"><span class="ln">Layer 0</span><b>Fast stabiliser</b><span class="lt">Sub-millisecond to 1 s</span><span>Absorbs and injects power during AI load steps</span></div>
+      <div class="lr" role="row"><span class="ln">Layer 1</span><b>Engine control</b><span class="lt">0.1 s to 10 s</span><span>Governors hold frequency and share load</span></div>
+      <div class="lr hi" role="row"><span class="ln">Layer 2</span><b>Supervisory control</b><span class="lt">1 s to hours</span><span>Engine commitment, reserve policy, stabiliser energy state, signals from the data-centre scheduler</span></div>
+    </div>
+    <div class="cols">
+      <div><h3>Phase 1 · 8 weeks</h3><p>A dynamic plant model calibrated on real load-step tests, run against measured AI training load profiles for two reference plants.</p></div>
+      <div><h3>Deliverables</h3><ul><li>Validated plant model</li><li>Sizing study: engines, reserve, stabiliser capacity</li><li>Supervisory control specification</li><li>Sizing tool for sales engineering</li></ul></div>
+      <div><h3>Built on Mithra</h3><p>Open-source plant controller: frequency state machine, Modbus genset drivers, flexible-load curtailment, failsafe logic, automated tests. <a href="https://github.com/darkknight4563/mithra" target="_blank" rel="noopener">github.com/darkknight4563/mithra</a></p></div>
+    </div>
+    <p class="contact">Ali Emadi · Gatekeeper AI · Oslo · <span class="mono">emadiali83@gmail.com</span> · <span class="mono">+47 920 93 908</span></p>
+  </section>
+
+  <footer>
+    <h2>Sources</h2>
+    <ol>
+      <li><a href="https://www.supercomputing.news/ai/ai-data-center-power-bottleneck-gas-turbine-slot" target="_blank" rel="noopener">Supercomputing News: the 2031 turbine slot</a></li>
+      <li><a href="https://www.energy-storage.news/nercs-level-3-alert-puts-data-centres-on-notice-as-grid-faces-gigawatt-scale-load-swings/" target="_blank" rel="noopener">Energy-Storage.news: NERC Level 3 alert on data-centre loads</a></li>
+      <li><a href="https://www.datacenterdynamics.com/en/analysis/the-ai-power-swingers/" target="_blank" rel="noopener">DCD: The AI power swingers</a></li>
+      <li><a href="https://arxiv.org/pdf/2508.14318" target="_blank" rel="noopener">Microsoft, OpenAI, NVIDIA: Power Stabilization for AI Training Datacenters</a></li>
+      <li><a href="https://www.piller.com/lets-talk-behind-the-meter-island-power-for-ai-data-centres/" target="_blank" rel="noopener">Piller: Behind-the-meter (island) power for AI data centres</a></li>
+      <li><a href="https://www.crusoe.ai/resources/newsroom/bergen-engines-signs-approx-750mw-u-s-power-agreement-with-crusoe-for-ai-data-centers" target="_blank" rel="noopener">Crusoe: ~750 MW Bergen Engines agreement</a></li>
+      <li><a href="https://www.powermag.com/oracle-taps-voltagrid-for-2-3-gw-modular-gas-fleet-to-power-ai-data-centers-across-texas/" target="_blank" rel="noopener">POWER: Oracle taps VoltaGrid for 2.3 GW</a></li>
+    </ol>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ================= physics ================= */
+function createSim(){
+  const s={
+    p:{f0:50,H:1.5,D:1.5,nGen:12,genMW:11.2,itMW:100,depth:0.25,period:1.6,duty:0.68,
+       bess:false,floor:false,flex:false,bessMW:35,bessMWh:8,floorFrac:0.72,minerMW:30,uf:47.5,of:51.5,rampDn:0.06},
+    t:0,f:50,Pm:0,I:0,Pb:0,soc:0.6,M:0,gpu:0,gpuEff:0,lpfNet:0,lpfG1:0,lpfG30:0,floorLvl:0,
+    tripped:false,tripT:0,trips:0,lostS:0,excur:0,event:null,eventT:0,restartT:0,burned:0,mined:0,tripWhy:"",worst:0
+  };
+  s.S=()=>s.p.nGen*s.p.genMW;
+  s.init=()=>{const L=s.p.itMW*(s.p.duty+(1-s.p.duty)*(1-s.p.depth));s.gpu=s.gpuEff=L;s.lpfNet=L;s.lpfG1=s.lpfG30=L;
+    s.floorLvl=L;s.M=s.p.flex?s.p.minerMW*0.5:0;s.Pm=Math.min(s.S(),L+s.M+1.5);s.I=s.Pm;s.f=s.p.f0;s.Pb=0;};
+  s.rawGpu=()=>{const p=s.p,b=p.itMW;
+    if(s.restartT>0)return 0;
+    if(s.event==="ckpt"&&s.eventT<5)return b*0.18;
+    if(s.event==="crash"){if(s.eventT<6)return b*0.04;if(s.eventT<6.4)return b*0.04+b*0.96*(s.eventT-6)/0.4;}
+    const ph=(s.t%p.period)/p.period,edge=0.03/p.period;let hi=ph<p.duty?1:0;
+    if(ph<edge)hi=ph/edge;else if(ph>p.duty&&ph<p.duty+edge)hi=1-(ph-p.duty)/edge;
+    return b*(1-p.depth*(1-hi));};
+  s.step=(dt)=>{const p=s.p,S=s.S();
+    s.t+=dt;if(s.event){s.eventT+=dt;if(s.eventT>9)s.event=null;}
+    if(s.tripped){s.tripT+=dt;s.lostS+=dt;s.f=Math.max(0,s.f-dt*20);s.Pm=0;s.gpu=s.gpuEff=0;s.M=0;s.Pb=0;
+      if(s.tripT>7){s.tripped=false;s.restartT=1.2;s.event=null;s.init();}return;}
+    if(s.restartT>0){s.restartT-=dt;s.lostS+=dt;}
+    s.gpu=s.rawGpu();
+    const busy=s.event||s.restartT>0;
+    if(p.floor){const fl=Math.max(p.floorFrac*p.itMW*(busy?0:1),s.floorLvl-p.rampDn*p.itMW*dt);
+      s.gpuEff=Math.max(s.gpu,fl);s.floorLvl=Math.max(fl,busy?0:s.gpu);}
+    else{s.gpuEff=s.gpu;s.floorLvl=s.gpu;}
+    s.burned+=(s.gpuEff-s.gpu)*dt/3600;
+    s.lpfG1+=(s.gpuEff-s.lpfG1)*dt/0.5;s.lpfG30+=(s.gpuEff-s.lpfG30)*dt/30;
+    if(p.flex){const Mb=p.minerMW*0.5;let Mt=Mb+(s.lpfG30-s.lpfG1);Mt=Math.min(p.minerMW,Math.max(0,Mt));
+      const r=p.minerMW*0.8*dt;s.M+=Math.max(-r,Math.min(r,Mt-s.M));}else{s.M=Math.max(0,s.M-p.minerMW*0.8*dt);}
+    s.mined+=s.M*dt/3600;
+    const net=s.gpuEff+s.M+1.5;
+    s.lpfNet+=(net-s.lpfNet)*dt/2.5;
+    if(p.bess){let Pb=(net-s.lpfNet)+(p.bessMW/0.25)*(p.f0-s.f)+0.6*p.bessMW*(0.6-s.soc);
+      Pb=Math.max(-p.bessMW,Math.min(p.bessMW,Pb));if(s.soc<=0.05&&Pb>0)Pb=0;if(s.soc>=0.98&&Pb<0)Pb=0;
+      s.Pb=Pb;s.soc-=Pb*dt/3600/p.bessMWh;}else s.Pb=0;
+    const Pe=net-s.Pb,e=p.f0-s.f;
+    s.I+=0.35*S*e*dt;s.I=Math.max(0,Math.min(S,s.I));
+    let cmd=Math.max(0,Math.min(S,s.I+0.55*S*e));
+    let dPm=(cmd-s.Pm)*dt/0.7;const rl=0.18*S*dt;dPm=Math.max(-rl,Math.min(rl,dPm));s.Pm+=dPm;
+    s.f+=p.f0/(2*p.H*S)*(s.Pm-Pe-p.D*S/p.f0*(s.f-p.f0))*dt;
+    s.worst=Math.max(s.worst,Math.abs(s.f-p.f0));
+    if(s.f<p.uf||s.f>p.of){s.excur+=dt;if(s.excur>0.12){s.tripped=true;s.tripT=0;s.trips++;s.excur=0;
+      s.tripWhy=s.f>p.of?"Over-frequency "+s.f.toFixed(2)+" Hz":"Under-frequency "+s.f.toFixed(2)+" Hz";}}else s.excur=0;};
+  s.fire=(ev)=>{if(s.tripped||s.restartT>0)return;s.event=ev;s.eventT=0;};
+  return s;
+}
+const sim=createSim();sim.init();
+
+/* ================= DOM refs ================= */
+const $=id=>document.getElementById(id);
+const stage=$("stage"),canvas=$("gl"),tagsEl=$("tags");
+const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ================= 3D scene ================= */
+let renderer,scene,camera,three=typeof THREE!=="undefined";
+const G={};
+if(three){try{build3D();}catch(e){three=false;console.warn(e);}}
+function glowTex(r,g,b){const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d");
+  const gr=x.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,`rgba(${r},${g},${b},1)`);gr.addColorStop(.35,`rgba(${r},${g},${b},.35)`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  x.fillStyle=gr;x.fillRect(0,0,128,128);const t=new THREE.CanvasTexture(c);return t;}
+function build3D(){
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x0d1215);scene.fog=new THREE.Fog(0x0d1215,90,210);
+  camera=new THREE.PerspectiveCamera(38,1,0.5,500);
+  scene.add(new THREE.HemisphereLight(0xa9c2d0,0x0a0e10,0.85));
+  const sun=new THREE.DirectionalLight(0xffe6cc,0.75);sun.intensity=1.0;sun.position.set(-40,70,45);sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-80,right:80,top:60,bottom:-60,near:1,far:220});scene.add(sun);
+  G.genLight=new THREE.PointLight(0xff9a4a,0,60,2);G.genLight.position.set(-33,9,0);scene.add(G.genLight);
+  G.hallLight=new THREE.PointLight(0x8fc2ff,0,70,2);G.hallLight.position.set(26,10,0);scene.add(G.hallLight);
+  G.alarm=new THREE.PointLight(0xff3030,0,120,1.5);G.alarm.position.set(-8,16,0);scene.add(G.alarm);
+
+  // ground + grid
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshStandardMaterial({color:0x151d21,roughness:.95,metalness:0}));
+  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+  const grid=new THREE.GridHelper(200,50,0x0f171b,0x0c1317);grid.position.y=0.02;scene.add(grid);
+  const pad=(w,d,x,z,c)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,.3,d),new THREE.MeshStandardMaterial({color:c||0x1d272c,roughness:.9}));m.position.set(x,.15,z);m.receiveShadow=true;scene.add(m);return m;};
+  pad(42,26,-33,0);pad(18,40,-6,0);pad(34,30,26,0,0x192227);
+
+  const metal=new THREE.MeshStandardMaterial({color:0x66747c,roughness:.5,metalness:.45});
+  const dark=new THREE.MeshStandardMaterial({color:0x222c31,roughness:.7,metalness:.4});
+  // gensets: 2 rows x 8
+  G.gens=[];
+  const exhaustTex=glowTex(255,150,70);
+  for(let i=0;i<16;i++){
+    const row=i<8?-1:1,col=i%8,g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.BoxGeometry(3.4,2.6,8),metal);body.position.y=1.6;body.castShadow=true;body.receiveShadow=true;g.add(body);
+    const hood=new THREE.Mesh(new THREE.BoxGeometry(3.0,.6,5.2),dark);hood.position.set(0,3.2,-.8);hood.castShadow=true;g.add(hood);
+    const stack=new THREE.Mesh(new THREE.CylinderGeometry(.35,.42,3.4,14),dark);stack.position.set(0,4.6,2.2);stack.castShadow=true;g.add(stack);
+    const ledMat=new THREE.MeshBasicMaterial({color:0x6fbf8e});const led=new THREE.Mesh(new THREE.BoxGeometry(.5,.5,.1),ledMat);led.position.set(0,2.2,row*-4.06);g.add(led);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:exhaustTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.0}));
+    sp.position.set(0,6.6,2.2);sp.scale.set(3,3,1);g.add(sp);
+    g.position.set(-49+col*4.6,.3,row*6.2);g.rotation.y=0;scene.add(g);
+    G.gens.push({g,ledMat,sp});
+  }
+  // switchgear / bus
+  const sw=new THREE.Mesh(new THREE.BoxGeometry(3,4,22),new THREE.MeshStandardMaterial({color:0x2f3a40,roughness:.6,metalness:.5}));sw.position.set(-12,2.3,0);sw.castShadow=true;scene.add(sw);
+  G.busMat=new THREE.MeshBasicMaterial({color:0xdde3e5});
+  const bus=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,22.4),G.busMat);bus.position.set(-10.4,3.8,0);scene.add(bus);
+  // BESS containers (behind, -z) and miners (front, +z)
+  const cont=(x,z,color)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(2.6,2.9,12.2),new THREE.MeshStandardMaterial({color,roughness:.6,metalness:.25}));
+    m.position.set(x,1.75,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;};
+  G.bessBars=[];
+  for(let i=0;i<3;i++){cont(-9.5+i*3.4+3.4,-13,0xb9c2c6);
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(.12,2,10),new THREE.MeshBasicMaterial({color:0x6fbf8e}));bar.position.set(-9.5+i*3.4+3.4+1.36,1.8,-13);scene.add(bar);G.bessBars.push(bar);}
+  G.minerGlow=[];
+  const fanTex=glowTex(236,140,62);
+  for(let i=0;i<3;i++){const x=-9.5+i*3.4+3.4;cont(x,13.5,0x4a4038);
+    for(let k=0;k<4;k++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:fanTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0}));
+      sp.position.set(x+1.5,1.8,13.5-4.5+k*3);sp.scale.set(2.4,2.4,1);scene.add(sp);G.minerGlow.push(sp);}}
+  // GPU hall
+  const hallFloor=new THREE.Mesh(new THREE.BoxGeometry(32,.4,28),new THREE.MeshStandardMaterial({color:0x1b2429,roughness:.8}));hallFloor.position.set(26,.4,0);hallFloor.receiveShadow=true;scene.add(hallFloor);
+  const wallMat=new THREE.MeshStandardMaterial({color:0x2a353b,roughness:.7,metalness:.3,transparent:true,opacity:.55});
+  [[26,-14,32,.4],[26,14,32,.4],[42,0,.4,28]].forEach(([x,z,w,d])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,2.4,d),wallMat);m.position.set(x,1.8,z);scene.add(m);});
+  const rows=7,perRow=12,rackGeo=new THREE.BoxGeometry(1.8,3.2,1.1),stripGeo=new THREE.PlaneGeometry(1.4,2.6);
+  const rackMesh=new THREE.InstancedMesh(rackGeo,new THREE.MeshStandardMaterial({color:0x151c20,roughness:.5,metalness:.6}),rows*perRow);
+  G.stripMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});
+  const stripMesh=new THREE.InstancedMesh(stripGeo,G.stripMat,rows*perRow);
+  const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),one=new THREE.Vector3(1,1,1);let n=0;
+  G.rackPhase=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<perRow;c++){
+    const x=13+c*2.2,z=-11+r*3.7;
+    m4.compose(new THREE.Vector3(x,2.2,z),q,one);rackMesh.setMatrixAt(n,m4);
+    m4.compose(new THREE.Vector3(x,2.2,z+.56),q,one);stripMesh.setMatrixAt(n,m4);
+    stripMesh.setColorAt(n,new THREE.Color(0x8fb8de));G.rackPhase.push(Math.random());n++;}
+  rackMesh.castShadow=true;rackMesh.receiveShadow=true;scene.add(rackMesh);scene.add(stripMesh);G.strips=stripMesh;
+
+  // cables + particles
+  const cableMat=new THREE.MeshStandardMaterial({color:0x10171a,roughness:.8});
+  const mk=(pts)=>{const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
+    const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,64,.16,6,false),cableMat);scene.add(tube);
+    const samples=curve.getSpacedPoints(240);return samples;};
+  G.links={
+    genA:mk([[-49,.6,-1.2],[-30,.6,-1.2],[-16,.6,-1.2],[-12,.6,-1.2]]),
+    genB:mk([[-49,.6,1.2],[-30,.6,1.2],[-16,.6,1.2],[-12,.6,1.2]]),
+    hall:mk([[-10.4,3.8,0],[-2,5,0],[6,4,0],[11,2.2,0]]),
+    bess:mk([[-10.4,3.8,-4],[-8,2.5,-7],[-3,.6,-7.5],[0,.6,-7]]),
+    miner:mk([[-10.4,3.8,4],[-8,2.5,7],[-3,.6,7.5],[0,.6,7]])
+  };
+  G.flows={};
+  const flowDef={genA:0xec8c3e,genB:0xec8c3e,hall:0x9fc6ee,bess:0xdfe6ea,miner:0xf2a860};
+  const dotTex=glowTex(255,255,255);
+  for(const k in G.links){const N=48,geo=new THREE.BufferGeometry(),pos=new Float32Array(N*3);geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+    const mat=new THREE.PointsMaterial({color:flowDef[k],size:1.1,map:dotTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.9});
+    const pts=new THREE.Points(geo,mat);scene.add(pts);const u=[];for(let i=0;i<N;i++)u.push(i/N);G.flows[k]={pts,u,mat};}
+
+  // labels
+  // hex colours above are sRGB; convert lit materials and fog to linear so the sRGB output isn't washed out
+  scene.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial)m.color.convertSRGBToLinear();});
+  scene.fog.color.convertSRGBToLinear();
+  G.tags=[
+    {el:mkTag(),at:new THREE.Vector3(-33,8.6,0),fn:()=>`<b>Gas gensets</b>${sim.p.nGen} × 11.2 MW · ${sim.Pm.toFixed(0)} MW out`},
+    {el:mkTag(),at:new THREE.Vector3(-3.6,4.8,-13),fn:()=>`<b>Fast stabiliser</b>${sim.p.bess?(sim.Pb>=0?"+":"")+sim.Pb.toFixed(0)+" MW · "+Math.round(sim.soc*100)+"%":"offline"}`},
+    {el:mkTag(),at:new THREE.Vector3(-3.6,4.8,13.5),fn:()=>`<b>Flexible load</b>${sim.p.flex||sim.M>0.5?sim.M.toFixed(0)+" / "+sim.p.minerMW+" MW":"offline"}`},
+    {el:mkTag(),at:new THREE.Vector3(27,6.8,0),fn:()=>`<b>GPU training hall</b>${sim.gpu.toFixed(0)} MW demand`}
+  ];
+}
+function mkTag(){const d=document.createElement("div");d.className="tag";tagsEl.appendChild(d);return d;}
+
+/* camera orbit */
+const cam={yaw:-0.62,pitch:0.5,target:{x:-4,y:0,z:0},r:100,drag:null,auto:!reduce};
+canvas.addEventListener("pointerdown",e=>{cam.drag={x:e.clientX,y:e.clientY,yaw:cam.yaw,pitch:cam.pitch,type:e.pointerType};cam.auto=false;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointermove",e=>{if(!cam.drag)return;cam.yaw=cam.drag.yaw-(e.clientX-cam.drag.x)*0.006;
+  if(cam.drag.type==="mouse")cam.pitch=Math.max(0.18,Math.min(1.25,cam.drag.pitch+(e.clientY-cam.drag.y)*0.004));});
+const endDrag=()=>{cam.drag=null;};canvas.addEventListener("pointerup",endDrag);canvas.addEventListener("pointercancel",endDrag);
+
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  if(three){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  const asp=w/h;cam.r=asp<1?175:asp<1.4?135:100;cam.target.x=asp<1?-6:asp<1.4?-8:-16;
+  if(three){scene.fog.near=cam.r*0.95;scene.fog.far=cam.r*2.1;}
+  sizeScope();
+}
+window.addEventListener("resize",resize);
+
+/* ================= scope ================= */
+const scope=$("scope"),sctx=scope.getContext("2d");let SW=0,SH=0;
+function sizeScope(){const r=scope.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2);SW=r.width;SH=r.height;scope.width=SW*d;scope.height=SH*d;sctx.setTransform(d,0,0,d,0,0);}
+const HIST=480,hist=[];let histAcc=0;
+function drawScope(){
+  const c=sctx,w=SW,h=SH;c.clearRect(0,0,w,h);
+  const padL=44,padR=10,topH=h*0.56,gap=14,botY=topH+gap,botH=h-botY-16;
+  const maxMW=Math.max(120,sim.S()+10);
+  c.font="10px 'IBM Plex Mono',monospace";c.textBaseline="middle";
+  // grids
+  c.strokeStyle="#223037";c.lineWidth=1;c.fillStyle="#6b7a81";
+  for(let v=0;v<=maxMW;v+=40){const y=topH-(v/maxMW)*(topH-6);c.beginPath();c.moveTo(padL,y+.5);c.lineTo(w-padR,y+.5);c.stroke();c.fillText(v+" MW",4,y);}
+  const fy=(f)=>botY+botH/2-(f-50)/3.5*(botH/2);
+  [[53.5,""],[51.5,"51.5"],[50,"50.0"],[47.5,"47.5"],[46.5,""]].forEach(([f,l])=>{const y=fy(f);if(!l)return;
+    c.strokeStyle=(f===50)?"#2c3b42":"rgba(236,77,79,.55)";c.setLineDash(f===50?[]:[4,4]);c.beginPath();c.moveTo(padL,y+.5);c.lineTo(w-padR,y+.5);c.stroke();c.setLineDash([]);
+    c.fillStyle=f===50?"#6b7a81":"#c9686a";c.fillText(l,4,y);});
+  c.fillStyle="#6b7a81";c.fillText("Hz",4,botY+2);
+  // alarm band
+  c.fillStyle="rgba(227,192,79,.05)";c.fillRect(padL,fy(51.5),w-padL-padR,fy(50.5)-fy(51.5));c.fillRect(padL,fy(49.5),w-padL-padR,fy(47.5)-fy(49.5));
+  if(hist.length<2)return;
+  const X=i=>padL+(w-padL-padR)*(i/(HIST-1))+(HIST-hist.length)*(w-padL-padR)/(HIST-1);
+  const line=(key,color,lw,yfn,dash)=>{c.strokeStyle=color;c.lineWidth=lw;c.setLineDash(dash||[]);c.beginPath();
+    hist.forEach((p,i)=>{const x=X(i),y=yfn(p[key]);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();c.setLineDash([]);};
+  const mwY=v=>topH-(Math.max(-40,v)/maxMW)*(topH-6);
+  // fill under genset
+  c.fillStyle="rgba(236,140,62,.10)";c.beginPath();c.moveTo(X(0),mwY(0));hist.forEach((p,i)=>c.lineTo(X(i),mwY(p.pm)));c.lineTo(X(hist.length-1),mwY(0));c.closePath();c.fill();
+  line("gpu","#8fb8de",1.4,mwY);
+  line("pb","rgba(199,207,211,.75)",1,v=>mwY(Math.abs(v)),[2,3]);
+  line("pm","#ec8c3e",2,mwY);
+  // freq with trip coloring
+  c.lineWidth=1.8;let prev=null;
+  hist.forEach((p,i)=>{const x=X(i),y=fy(Math.max(46.5,Math.min(53.5,p.f||46.5)));
+    if(prev){c.strokeStyle=p.trip?"#ec4d4f":(Math.abs(p.f-50)>0.5?"#e3c04f":"#e8ecee");c.beginPath();c.moveTo(prev.x,prev.y);c.lineTo(x,y);c.stroke();}
+    prev={x,y};});
+  const last=hist[hist.length-1];const lx=X(hist.length-1),ly=fy(Math.max(46.5,Math.min(53.5,last.f||46.5)));
+  c.fillStyle=last.trip?"#ec4d4f":"#fff";c.beginPath();c.arc(lx,ly,3,0,7);c.fill();
+}
+
+/* ================= UI ================= */
+const ui={mOff:$("mOff"),mOn:$("mOn"),lBess:$("lBess"),lFloor:$("lFloor"),lFlex:$("lFlex"),sDepth:$("sDepth"),sIt:$("sIt"),sGen:$("sGen")};
+function setMaster(on){sim.p.bess=sim.p.floor=sim.p.flex=on;syncUI();}
+function syncUI(){ui.lBess.checked=sim.p.bess;ui.lFloor.checked=sim.p.floor;ui.lFlex.checked=sim.p.flex;
+  const any=sim.p.bess||sim.p.floor||sim.p.flex;ui.mOn.setAttribute("aria-pressed",any);ui.mOff.setAttribute("aria-pressed",!any);
+  ui.sDepth.value=Math.round(sim.p.depth*100);$("oDepth").textContent=ui.sDepth.value+"%";
+  ui.sIt.value=sim.p.itMW;$("oIt").textContent=sim.p.itMW+" MW";ui.sGen.value=sim.p.nGen;$("oGen").textContent=sim.p.nGen+" × 11.2 MW";}
+ui.mOff.onclick=()=>{stopStory();setMaster(false);say("<b>Mithra off.</b> The gas engines face the GPU load alone.");};
+ui.mOn.onclick=()=>{stopStory();setMaster(true);say("<b>Mithra on.</b> Stabiliser, GPU floor and flexible load share the swings. Try a checkpoint.");};
+ui.lBess.onchange=()=>{sim.p.bess=ui.lBess.checked;syncUI();};
+ui.lFloor.onchange=()=>{sim.p.floor=ui.lFloor.checked;syncUI();};
+ui.lFlex.onchange=()=>{sim.p.flex=ui.lFlex.checked;syncUI();};
+ui.sDepth.oninput=()=>{sim.p.depth=ui.sDepth.value/100;syncUI();};
+ui.sIt.oninput=()=>{sim.p.itMW=+ui.sIt.value;syncUI();};
+ui.sGen.oninput=()=>{sim.p.nGen=+ui.sGen.value;syncUI();};
+$("bCkpt").onclick=()=>{sim.fire("ckpt");say("<b>Checkpoint.</b> GPUs pause to write state: demand falls to 18% in milliseconds, for five seconds.");};
+$("bCrash").onclick=()=>{sim.fire("crash");say("<b>Job crash.</b> Demand collapses to 4%, then the restart slams it back to full in 0.4 s.");};
+const cap=$("caption");function say(h){cap.innerHTML=h;}
+
+/* story */
+let story=null;
+const script=[
+  [0,()=>{Object.assign(sim.p,{depth:.25,itMW:100,nGen:12});setMaster(false);sim.trips=0;sim.lostS=0;sim.worst=0;sim.burned=0;sim.mined=0;
+     say("<b>1 · Engines alone.</b> 100 MW of GPUs on twelve gas gensets, no stabiliser. Each training step swings demand by 25%. Frequency wobbles but holds.");}],
+  [6,()=>{sim.fire("ckpt");say("<b>2 · Checkpoint.</b> Demand drops 82 MW in milliseconds. The engines keep pushing, the bus speeds up past 51.5 Hz, and protection trips the site.");}],
+  [17,()=>{setMaster(true);say("<b>3 · Black start, all layers on.</b> The stabiliser takes the fast swings, the GPU floor limits how fast demand can fall, and flexible load fills the gap.");}],
+  [22,()=>{sim.fire("ckpt");say("<b>4 · Same checkpoint.</b> The GPUs ramp down gently, flexible load soaks up the rest, and the engines see a slow slope.");}],
+  [31,()=>{sim.fire("crash");say("<b>5 · Job crash and restart.</b> The hardest case: 96 MW gone, then back in 0.4 s. The bus stays inside ±0.1 Hz.");}],
+  [41,()=>{say("<b>That is the supervisory layer.</b> One controller coordinating engines, stabiliser and data centre, so the plant is sized for the real workload.");stopStory();}]
+];
+function startStory(){stopStory();story={t:0,i:0};$("bStory").textContent="Playing… click to stop";}
+function stopStory(){story=null;$("bStory").textContent="Play the 40-second story";}
+$("bStory").onclick=()=>{story?stopStory():startStory();};
+
+/* ================= loop ================= */
+const hzBig=$("hzBig"),chip=$("stateChip"),banner=$("banner");
+let last=performance.now(),frame=0;const tmpV=three?new THREE.Vector3():null;
+function loop(now){
+  let dt=Math.min(0.1,(now-last)/1000);last=now;
+  if(story){story.t+=dt;while(story&&story.i<script.length&&story.t>=script[story.i][0]){script[story.i][1]();if(story)story.i++;}}
+  const n=Math.ceil(dt/0.004);for(let i=0;i<n;i++)sim.step(dt/n);
+  histAcc+=dt;while(histAcc>=0.05){histAcc-=0.05;hist.push({gpu:sim.gpu,pm:sim.Pm,pb:sim.Pb,f:sim.tripped?0:sim.f,trip:sim.tripped});if(hist.length>HIST)hist.shift();}
+  // HUD
+  const f=sim.tripped?0:sim.f,dev=Math.abs(f-50);
+  hzBig.firstChild.nodeValue=sim.tripped?"0.00":f.toFixed(2);
+  const st=sim.tripped?"trip":(sim.restartT>0?"warn":dev>0.5?"warn":"ok");
+  hzBig.style.color=st==="trip"?"var(--trip)":st==="warn"?"var(--warn)":"var(--text)";
+  chip.className="chip "+st;chip.lastChild.textContent=sim.tripped?"Tripped":sim.restartT>0?"Black start":dev>0.5?"Alarm · outside ±0.5 Hz":"Normal";
+  banner.classList.toggle("on",sim.tripped);
+  if(sim.tripped)$("bannerSub").textContent=sim.tripWhy+" · gensets offline · black start in "+Math.max(0,7-sim.tripT).toFixed(0)+" s";
+  if(frame%6===0){$("tTrips").textContent=sim.trips;$("tTrips").style.color=sim.trips?"var(--trip)":"";
+    $("tLost").innerHTML=sim.lostS.toFixed(0)+"<small> s</small>";
+    $("tSwing").innerHTML="±"+Math.min(sim.worst,9.99).toFixed(2)+"<small> Hz</small>";
+    $("tEnergy").innerHTML=(sim.burned*1000).toFixed(0)+"<small> kWh burned · "+(sim.mined*1000).toFixed(0)+" mined</small>";}
+  drawScope();
+  if(three)render3D(dt,now/1000);
+  frame++;requestAnimationFrame(loop);
+}
+function render3D(dt,t){
+  if(cam.auto)cam.yaw+=dt*0.025;
+  const cp=Math.cos(cam.pitch);camera.position.set(cam.target.x+cam.r*cp*Math.sin(cam.yaw),cam.r*Math.sin(cam.pitch),cam.target.z+cam.r*cp*Math.cos(cam.yaw));
+  camera.lookAt(cam.target.x,6,cam.target.z);
+  const S=sim.S(),load=sim.tripped?0:sim.Pm/S;
+  const blink=(Math.sin(t*9)>0)?1:0.25;
+  G.gens.forEach((o,i)=>{const on=i<sim.p.nGen;o.g.visible=true;
+    o.ledMat.color.set(!on?0x2a3338:sim.tripped?(blink>.5?0xec4d4f:0x3a1414):Math.abs(sim.f-50)>0.5?0xe3c04f:0x6fbf8e);
+    const flick=0.85+0.15*Math.sin(t*13+i*1.7);o.sp.material.opacity=on&&!sim.tripped?Math.min(1,load*1.1)*flick:0;o.sp.scale.setScalar(2+load*3.2);
+    o.g.position.y=on&&!sim.tripped?.3+Math.sin(t*40+i)*0.012*load:.3;});
+  G.genLight.intensity=sim.tripped?0:load*2.2;
+  const hallFrac=sim.tripped?0:sim.gpuEff/Math.max(1,sim.p.itMW);
+  G.hallLight.intensity=hallFrac*2.6;
+  const col=new THREE.Color();
+  for(let i=0;i<G.rackPhase.length;i++){const k=sim.tripped?0.03:Math.max(.05,Math.min(1.25,(sim.gpu/Math.max(1,sim.p.itMW))*(0.85+0.3*Math.sin(t*6+G.rackPhase[i]*6.28))));
+    col.setRGB(0.28*k,0.5*k,0.78*k);G.strips.setColorAt(i,col);}
+  G.strips.instanceColor.needsUpdate=true;
+  G.busMat.color.set(sim.tripped?(blink>.5?0xec4d4f:0x301010):Math.abs(sim.f-50)>0.5?0xe3c04f:0xdde3e5);
+  G.alarm.intensity=sim.tripped?blink*3:0;
+  G.bessBars.forEach(b=>{b.scale.y=Math.max(.02,sim.soc);b.position.y=.8+sim.soc;b.material.color.set(sim.p.bess?(Math.abs(sim.Pb)>1?0xdfe6ea:0x6fbf8e):0x2a3338);});
+  const mf=sim.M/Math.max(1,sim.p.minerMW);G.minerGlow.forEach((s,i)=>{s.material.opacity=Math.min(.95,mf*1.2)*(0.8+0.2*Math.sin(t*20+i));});
+  // flows
+  const flow={genA:sim.Pm/2,genB:sim.Pm/2,hall:sim.gpuEff,bess:-sim.Pb,miner:sim.M};
+  for(const k in G.flows){const F=G.flows[k],pts=G.links[k],v=flow[k],mag=Math.abs(v),dir=v>=0?1:-1;
+    const speed=(k==="genA"||k==="genB")?0.0035*mag:0.006*mag;F.mat.opacity=sim.tripped?0:Math.min(.95,mag/12);
+    const arr=F.pts.geometry.attributes.position.array;
+    for(let i=0;i<F.u.length;i++){F.u[i]=(F.u[i]+dir*speed*dt+1)%1;const p=pts[Math.floor(F.u[i]*(pts.length-1))];arr[i*3]=p.x;arr[i*3+1]=p.y+.25;arr[i*3+2]=p.z;}
+    F.pts.geometry.attributes.position.needsUpdate=true;}
+  renderer.render(scene,camera);
+  // tags
+  const w=stage.clientWidth,h=stage.clientHeight;
+  G.tags.forEach(tg=>{tmpV.copy(tg.at).project(camera);const x=(tmpV.x*.5+.5)*w,y=(-tmpV.y*.5+.5)*h-14;
+    const vis=tmpV.z<1&&x>40&&x<w-40&&y>20&&y<h;tg.el.style.display=vis?"":"none";if(vis){tg.el.style.left=x+"px";tg.el.style.top=y+"px";if(frame%4===0)tg.el.innerHTML=tg.fn();}});
+}
+if(!three){stage.style.height="auto";canvas.style.display="none";$("tags").remove();document.querySelector(".drag-hint").remove();
+  stage.style.paddingBottom="120px";stage.style.minHeight="360px";}
+syncUI();resize();requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

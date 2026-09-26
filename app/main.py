@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.models import HealthResponse
@@ -20,6 +21,7 @@ from app.routers.ws import broadcast_snapshot
 from app.services.controller import controller
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+LAB_DIR = os.path.join(STATIC_DIR, "lab")
 
 
 @asynccontextmanager
@@ -72,3 +74,15 @@ async def health() -> HealthResponse:
 async def dashboard() -> FileResponse:
     """Serve the bundled control-room dashboard (now incl. the ROI panel)."""
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/lab", include_in_schema=False)
+async def lab_redirect() -> RedirectResponse:
+    """Send /lab to /lab/ so relative asset paths resolve."""
+    return RedirectResponse(url="/lab/", status_code=307)
+
+
+# Island Lab: static concept demo (3D plant sim) plus the explainer film.
+# Mounted last so it never shadows the API routes. StaticFiles serves
+# index.html for /lab/ and supports HTTP range requests for the MP4.
+app.mount("/lab", StaticFiles(directory=LAB_DIR, html=True), name="lab")
