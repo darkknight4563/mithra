@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gatekeeper — Flare Control</title>
+<title>Mithra — Flare Control</title>
 <style>
   /* ============ Design tokens — "mission control" signature theme ============ */
   :root {
@@ -444,6 +444,7 @@
           <div style="height:4px"></div>
           <button class="scn-btn scn-up" id="scnRamp"><span class="em">↗</span><span><div class="t">Ramp Up</div><div class="d">+0.5 kW/sec gradual increase</div></span></button>
           <button class="scn-btn scn-down" id="scnDrop"><span class="em">↘</span><span><div class="t">Sudden Drop</div><div class="d">instant −20% available power</div></span></button>
+          <button class="scn-btn scn-down" id="scnUnderfreq"><span class="em">〜</span><span><div class="t">Under-frequency</div><div class="d">engine sags to 48.7 Hz for 25s — governor sheds on Hz, not kW</div></span></button>
           <button class="scn-btn scn-noisy" id="scnNoisy"><span class="em">⚡</span><span><div class="t">Noisy Gas <span id="noisyState" style="color:var(--txt-faint)">OFF</span></div><div class="d">±3% fluctuation each tick</div></span></button>
           <div class="scn-note">Watch the chart respond — the controller rebalances the fleet automatically within the hysteresis dead-band.</div>
         </div>
@@ -486,7 +487,7 @@
     <div class="card roi-hero">
       <div class="hero-side"><div class="hl">Bitcoin-only (today)</div><div class="hv" id="rhWithout">—</div><div class="hs">net $/day</div></div>
       <div class="hero-vs"><div class="arrow">→</div></div>
-      <div class="hero-side"><div class="hl">With Gatekeeper · AI + BTC</div><div class="hv accent" id="rhWith">—</div><div class="hs">net $/day</div></div>
+      <div class="hero-side"><div class="hl">With Mithra · AI + BTC</div><div class="hv accent" id="rhWith">—</div><div class="hs">net $/day</div></div>
       <div class="hero-uplift">
         <div class="ul-big" id="rhUpDelta">—</div>
         <div class="ul-pct" id="rhUpPct">—</div>
@@ -549,7 +550,8 @@
     <span>Buffer <b id="sbBuffer">—</b></span>
     <span>Hysteresis <b id="sbHyst">—</b></span>
     <span>Loop <b id="sbLoop">—</b></span>
-    <span class="sig">designed by Claude · Opus 4.8</span>
+    <span>Bus <b id="sbHz">—</b></span>
+    <span>Fleet <b id="sbFleet">—</b></span>
   </div>
 </div>
 
@@ -624,6 +626,12 @@
     $("sbBuffer").textContent = num(s.bufferFactor, 2);
     $("sbHyst").textContent = num(s.hysteresis, 2);
     $("sbLoop").textContent = loopInt(s) + "s";
+    const hz = s.latestHz, fs = s.frequencyStatus || "N/A";
+    const hzEl = $("sbHz");
+    hzEl.textContent = hz == null ? "n/a" : `${num(hz, 2)} Hz · ${fs}`;
+    hzEl.style.color = fs === "TRIP" || fs === "LOW" ? "var(--red)"
+                     : fs === "HOLD" ? "var(--accent)" : "";
+    $("sbFleet").textContent = s.fleetBackend === "CGMINER" ? "REAL (CGMiner API)" : "SIMULATED";
     // Failsafe banner: generator fault drives latest PLC output to zero.
     $("failsafeBanner").classList.toggle("show", (s.latestPlcKw ?? 1) <= 0);
   }
@@ -692,6 +700,7 @@
   }
   $("scnRamp").onclick = async () => { if (await scenario("ramp_up")) toast("Ramp Up engaged", "ok"); };
   $("scnDrop").onclick = async () => { if (await scenario("sudden_drop")) toast("Sudden Drop applied", "ok"); };
+  $("scnUnderfreq").onclick = async () => { if (await scenario("underfrequency")) toast("Under-frequency injected — watch the governor shed", "ok"); };
   $("scnNoisy").onclick = async () => {
     const next = !noisyOn;
     if (await scenario("noisy_gas", next)) {

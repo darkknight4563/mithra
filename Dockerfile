@@ -21,4 +21,10 @@ COPY app ./app
 EXPOSE 8000
 
 # Shell form so ${PORT} is expanded at runtime. Falls back to 8000 locally.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+#
+# --workers 1 is load-bearing, not decoration: the control loop is a single
+# background task owning one shared ControllerState (app/services/controller.py).
+# A second worker means a second controller fighting over the same fleet. Passing
+# the flag explicitly also beats uvicorn's $WEB_CONCURRENCY fallback, which would
+# otherwise fork silently if that env var were ever set on the host.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

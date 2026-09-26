@@ -137,3 +137,119 @@ def test_scenario_modifiers_change_available_power():
     clock.advance(20)
     ctrl.tick()
     assert ctrl.state.latest_plc_kw > dropped
+
+
+# ---- frequency governor ------------------------------------------------------
+
+
+class FreqPlc(PlcInterface):
+    """PLC stub with abundant kW and a settable bus frequency."""
+
+    def __init__(self, hz: float | None, kw: float = 300.0) -> None:
+        """Store the frequency (None = source reports no Hz) and kW."""
+        self.hz = hz
+        self.kw = kw
+
+    def read_power(self) -> PlcReading:
+        """Return an OK reading at the configured kW and Hz."""
+        return PlcReading(generator_kw=self.kw, status="OK", frequency_hz=self.hz)
+
+
+def _on_count(ctrl: Controller) -> int:
+    return sum(1 for m in ctrl.miners.list_miners() if m.status == "ON")
+
+
+def test_classify_frequency_bands():
+    """Nominal 50 Hz with default margins maps onto the five governor states."""
+    ctrl = _make_controller(FreqPlc(50.0))
+    assert ctrl.classify_frequency(None) == "N/A"
+    assert ctrl.classify_frequency(50.0) == "OK"
+    assert ctrl.classify_frequency(49.71) == "OK"
+    assert ctrl.classify_frequency(49.6) == "HOLD"
+    assert ctrl.classify_frequency(48.9) == "LOW"
+    assert ctrl.classify_frequency(47.4) == "TRIP"
+
+
+def test_no_frequency_keeps_kw_only_behaviour():
+    """A kW-only source (Hz None) behaves exactly as before: ADD on headroom."""
+    ctrl = _make_controller(FreqPlc(None))
+    assert ctrl.tick() == "ADD"
+    assert ctrl.state.frequency_status == "N/A"
+    assert ctrl.state.latest_hz is None
+
+
+def test_hold_band_blocks_add_despite_headroom():
+    """Below nominal minus the add margin nothing is added even with spare kW."""
+    ctrl = _make_controller(FreqPlc(49.5))
+    before = _on_count(ctrl)
+    assert ctrl.tick() == "NONE"
+    assert _on_count(ctrl) == before
+    assert ctrl.state.frequency_status == "HOLD"
+    assert any("holding fleet" in e.message for e in ctrl.recent_logs())
+
+
+def test_low_band_sheds_one_miner_per_tick_despite_headroom():
+    """Under-frequency sheds the lowest-priority miner even though kW looks fine."""
+    ctrl = _make_controller(FreqPlc(48.8))
+    before = _on_count(ctrl)
+    assert ctrl.tick() == "REMOVE"
+    assert _on_count(ctrl) == before - 1
+    assert ctrl.tick() == "REMOVE"
+    assert _on_count(ctrl) == before - 2
+    assert ctrl.state.frequency_status == "LOW"
+    assert any("Under-frequency" in e.message for e in ctrl.recent_logs())
+
+
+def test_trip_band_is_failsafe():
+    """Frequency collapse trips every miner OFF in one tick."""
+    ctrl = _make_controller(FreqPlc(47.0))
+    assert _on_count(ctrl) > 0
+    assert ctrl.tick() == "FAILSAFE"
+    assert _on_count(ctrl) == 0
+    assert ctrl.state.active_miners == 0
+    assert ctrl.state.frequency_status == "TRIP"
+    assert any("Under-frequency trip" in e.message for e in ctrl.recent_logs())
+
+
+def test_recovery_after_frequency_trip():
+    """Once Hz recovers the controller adds miners back one per tick."""
+    plc = FreqPlc(47.0)
+    ctrl = _make_controller(plc)
+    ctrl.tick()
+    assert _on_count(ctrl) == 0
+    plc.hz = 50.0
+    assert ctrl.tick() == "ADD"
+    assert _on_count(ctrl) == 1
+
+
+def test_sixty_hz_nominal_shifts_bands():
+    """The governor is nominal-relative: a 60 Hz site sheds at 59, trips at 57.5."""
+    ctrl = Controller(
+        plc=FreqPlc(58.5),
+        miners=MinerService(boot_seconds=0),
+        buffer_factor=0.90,
+        hysteresis=0.05,
+        loop_interval=10,
+        nominal_hz=60.0,
+    )
+    assert ctrl.classify_frequency(59.5) == "HOLD"
+    assert ctrl.tick() == "REMOVE"
+
+
+def test_simulated_plc_underfrequency_scenario():
+    """The simulator's forced sag is visible to the controller and then clears."""
+    clock = FakeClock()
+    plc = SimulatedPlc(noise_level=0.0, clock=clock, hz_jitter=0.0)
+    ctrl = Controller(
+        plc=plc,
+        miners=MinerService(boot_seconds=0, clock=clock),
+        buffer_factor=0.90,
+        hysteresis=0.05,
+        loop_interval=10,
+    )
+    ctrl.apply_scenario("underfrequency")
+    assert ctrl.tick() == "REMOVE"
+    assert ctrl.state.frequency_status == "LOW"
+    clock.advance(30)
+    ctrl.tick()
+    assert ctrl.state.frequency_status == "OK"

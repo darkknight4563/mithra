@@ -1,1 +1,1 @@
-"""Gatekeeper AI / Flare Control System — backend application package."""
+"""Mithra — load control for compute behind constrained power."""

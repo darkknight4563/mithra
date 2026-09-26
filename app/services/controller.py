@@ -5,6 +5,12 @@ LOOP_INTERVAL seconds it reads generator power, smooths it, and adds/removes a
 single miner within a hysteresis dead-band so the fleet tracks available power
 without thrashing. A hard fail-safe trips all miners OFF on a generator fault.
 
+Frequency governor: when the source reports bus frequency, under-frequency
+overrides the kW logic — an islanded engine sags in Hz before any kW figure
+shows it is overloaded. Below nominal-minus-add-margin no miner is added;
+below nominal-minus-shed-margin one miner is shed per tick regardless of kW;
+below nominal-minus-trip-margin the fail-safe fires.
+
 The controller owns the single shared `ControllerState` the API reads, plus
 rolling buffers of recent readings (chart) and log events (activity feed).
 """
@@ -43,8 +49,14 @@ class Controller:
         mode: str = "SIMULATION",
         avg_window: int = 5,
         max_readings: int = 60,
-        max_logs: int = 200,
+        # The 82 s scripted demo emits ~250 entries; keep the whole story.
+        max_logs: int = 400,
         stagger_seconds: float = 2.0,
+        nominal_hz: float = 50.0,
+        hz_add_margin: float = 0.3,
+        hz_shed_margin: float = 1.0,
+        hz_trip_margin: float = 2.5,
+        fleet_backend: str = "SIMULATED",
     ) -> None:
         """Wire the controller to a PLC and miner fleet with tuning params."""
         self.plc = plc
@@ -53,6 +65,10 @@ class Controller:
         self.hysteresis = hysteresis
         self.loop_interval = loop_interval
         self.stagger_seconds = stagger_seconds
+        self.nominal_hz = nominal_hz
+        self.hz_add_margin = hz_add_margin
+        self.hz_shed_margin = hz_shed_margin
+        self.hz_trip_margin = hz_trip_margin
 
         self._avg: Deque[float] = deque(maxlen=avg_window)
         self.readings: Deque[PlcReading] = deque(maxlen=max_readings)
@@ -72,6 +88,7 @@ class Controller:
             mining_load_kw=0.0,
             active_miners=0,
             latest_plc_kw=0.0,
+            fleet_backend=fleet_backend,  # type: ignore[arg-type]
         )
 
     # ---- logging ---------------------------------------------------------
@@ -90,6 +107,29 @@ class Controller:
         """Register an async callable invoked after each control-loop tick."""
         self._on_tick = hook
 
+    # ---- frequency governor ----------------------------------------------
+
+    def classify_frequency(self, hz: float | None) -> str:
+        """Map a bus frequency onto N/A / OK / HOLD / LOW / TRIP."""
+        if hz is None:
+            return "N/A"
+        if hz < self.nominal_hz - self.hz_trip_margin:
+            return "TRIP"
+        if hz < self.nominal_hz - self.hz_shed_margin:
+            return "LOW"
+        if hz < self.nominal_hz - self.hz_add_margin:
+            return "HOLD"
+        return "OK"
+
+    def _trip_all(self, reason: str, available_power: float = 0.0) -> None:
+        """Fail-safe: every miner OFF, smoothing reset, state updated."""
+        for m in self.miners.list_miners():
+            if m.status != "OFF":
+                self.miners.set_power(m.id, "OFF")
+        self._avg.clear()
+        self._log("CRITICAL", reason)
+        self._update_state(available_power=available_power)
+
     # ---- one control-loop iteration -------------------------------------
 
     def tick(self) -> Decision:
@@ -102,18 +142,24 @@ class Controller:
         reading = self.plc.read_power()
         self.readings.append(reading)
         self.state.latest_plc_kw = reading.generator_kw
+        self.state.latest_hz = reading.frequency_hz
+        freq = self.classify_frequency(reading.frequency_hz)
+        self.state.frequency_status = freq  # type: ignore[assignment]
 
         # 6. FAIL-SAFE: generator fault -> stop everything, immediately.
         if reading.status == "FAULT" or reading.generator_kw <= 0:
-            for m in self.miners.list_miners():
-                if m.status != "OFF":
-                    self.miners.set_power(m.id, "OFF")
-            self._avg.clear()
-            self._log(
-                "CRITICAL",
-                "Generator fault — gas auto-diverts to flare, all miners stopped.",
+            self._trip_all(
+                "Generator fault — gas auto-diverts to flare, all miners stopped."
             )
-            self._update_state(available_power=0.0)
+            self._log("INFO", f"Control loop iteration completed in {self._ms(t0)}ms")
+            return "FAILSAFE"
+
+        # 6b. FAIL-SAFE on frequency collapse: the engine is about to stall.
+        if freq == "TRIP":
+            self._trip_all(
+                f"Under-frequency trip at {reading.frequency_hz} Hz — "
+                "engine overloaded, all miners stopped."
+            )
             self._log("INFO", f"Control loop iteration completed in {self._ms(t0)}ms")
             return "FAILSAFE"
 
@@ -138,7 +184,17 @@ class Controller:
         # 5. Decision with hysteresis dead-band. Check overload (REMOVE) first
         # for safety; ADD and REMOVE are otherwise mutually exclusive.
         decision: Decision = "NONE"
-        if on and available_power < current_load * (1 - self.hysteresis):
+        if on and freq == "LOW":
+            # Frequency says overloaded even if kW does not: shed first, ask later.
+            victim = max(on, key=lambda m: m.priority)
+            self.miners.set_power(victim.id, "OFF")
+            self._log(
+                "CRITICAL",
+                f"Under-frequency {reading.frequency_hz} Hz - shedding priority "
+                f"{victim.priority} miner",
+            )
+            decision = "REMOVE"
+        elif on and available_power < current_load * (1 - self.hysteresis):
             victim = max(on, key=lambda m: m.priority)  # lowest priority = highest number
             self.miners.set_power(victim.id, "OFF")
             self._log(
@@ -146,12 +202,17 @@ class Controller:
                 f"Power overload detected - shutting down priority {victim.priority} miners",
             )
             decision = "REMOVE"
-        elif off:
+        elif off and freq in ("OK", "N/A"):
             candidate = off[0]  # next OFF miner by priority
             projected_load = current_load + candidate.power_kw
             if available_power > projected_load * (1 + self.hysteresis):
                 self.miners.set_power(candidate.id, "ON")
                 decision = "ADD"
+        elif off and freq == "HOLD":
+            self._log(
+                "WARN",
+                f"Frequency {reading.frequency_hz} Hz below add margin - holding fleet",
+            )
 
         self._update_state(available_power=available_power)
 
@@ -346,6 +407,10 @@ class Controller:
         elif name == "noisy_gas":
             self.plc.set_noise(0.03 if enabled else 0.01)
             self._log("INFO", f"Scenario: noisy_gas {'enabled' if enabled else 'disabled'}")
+        elif name == "underfrequency":
+            hz = round(self.nominal_hz - self.hz_shed_margin - 0.3, 2)
+            self.plc.force_underfrequency(hz, seconds=25.0)
+            self._log("WARN", f"Scenario: underfrequency applied ({hz} Hz for 25 s)")
         else:
             self._log("WARN", f"Unknown scenario '{name}'")
 
@@ -368,12 +433,32 @@ def build_controller(
 
     return Controller(
         plc=get_plc(settings),
-        miners=MinerService(clock=clock),
+        miners=build_fleet(settings, clock=clock),
         buffer_factor=settings.buffer_factor,
         hysteresis=settings.hysteresis,
         loop_interval=settings.loop_interval,
         mode=settings.mode,
+        nominal_hz=settings.nominal_hz,
+        hz_add_margin=settings.hz_add_margin,
+        hz_shed_margin=settings.hz_shed_margin,
+        hz_trip_margin=settings.hz_trip_margin,
+        fleet_backend=settings.fleet_backend,
     )
+
+
+def build_fleet(settings, clock: Callable[[], float] = time.monotonic):
+    """Return the miner fleet adapter for FLEET_BACKEND (simulated or real)."""
+    if settings.fleet_backend == "CGMINER":
+        from app.services.fleet import CgminerFleetService, load_fleet_config
+
+        return CgminerFleetService(
+            load_fleet_config(settings.fleet_config),
+            port=settings.miner_api_port,
+            timeout=settings.miner_api_timeout,
+            poll_interval=settings.fleet_poll_interval,
+            clock=clock,
+        )
+    return MinerService(clock=clock)
 
 
 # Single shared instance the API reads and the background task drives.

@@ -44,3 +44,11 @@ async def sim_noisy(on: bool = True) -> dict:
     controller.apply_scenario("noisy_gas", enabled=on)
     await broadcast_snapshot()
     return {"success": True, "scenario": "noisy_gas", "enabled": on}
+
+
+@router.post("/sim/underfreq")
+async def sim_underfreq() -> dict:
+    """Frontend alias: hold the bus under-frequency (overloaded engine) for 25 s."""
+    controller.apply_scenario("underfrequency", True)
+    await broadcast_snapshot()
+    return {"success": True, "scenario": "underfrequency"}

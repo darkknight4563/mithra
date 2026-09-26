@@ -21,8 +21,9 @@ def test_plc_latest_is_camelcase():
     with TestClient(app) as client:
         body = client.get("/api/plc/latest").json()
     reading = body["reading"]
-    assert set(reading) == {"timestamp", "generatorKw", "status"}
+    assert set(reading) == {"timestamp", "generatorKw", "status", "frequencyHz"}
     assert isinstance(reading["generatorKw"], (int, float))
+    assert isinstance(reading["frequencyHz"], (int, float))
 
 
 def test_miners_list_shape():

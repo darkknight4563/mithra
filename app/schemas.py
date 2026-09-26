@@ -32,6 +32,9 @@ class ControllerStateOut(BaseModel):
     currentLoadKw: float
     activeMiners: int
     latestPlcKw: float
+    latestHz: Optional[float] = None
+    frequencyStatus: str = "N/A"
+    fleetBackend: str = "SIMULATED"
 
     @classmethod
     def from_state(cls, s) -> "ControllerStateOut":
@@ -48,6 +51,9 @@ class ControllerStateOut(BaseModel):
             currentLoadKw=s.mining_load_kw,
             activeMiners=s.active_miners,
             latestPlcKw=s.latest_plc_kw,
+            latestHz=s.latest_hz,
+            frequencyStatus=s.frequency_status,
+            fleetBackend=s.fleet_backend,
         )
 
 
@@ -107,5 +113,5 @@ class ConfigUpdate(BaseModel):
 class ScenarioCommand(BaseModel):
     """Body for the written-spec scenario endpoint."""
 
-    scenario: Literal["ramp_up", "sudden_drop", "noisy_gas"]
+    scenario: Literal["ramp_up", "sudden_drop", "noisy_gas", "underfrequency"]
     enabled: bool = True

@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to fleet.json. firmware: bos (Braiins OS, pause/resume) | luxos (logon+curtail) | stock (read-only; needs a smart PDU to switch). priority 1 = shed last.",
+  "miners": [
+    { "id": 1, "ip": "192.168.1.101", "priority": 1, "nominal_kw": 3.25, "firmware": "bos",   "label": "S21 rack A-1" },
+    { "id": 2, "ip": "192.168.1.102", "priority": 2, "nominal_kw": 3.25, "firmware": "bos",   "label": "S21 rack A-2" },
+    { "id": 3, "ip": "192.168.1.103", "priority": 3, "nominal_kw": 3.10, "firmware": "luxos", "label": "S19k rack B-1" },
+    { "id": 4, "ip": "192.168.1.104", "priority": 4, "nominal_kw": 3.10, "firmware": "stock", "label": "S19 stock fw (read-only)" }
+  ]
+}

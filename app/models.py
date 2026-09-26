@@ -35,6 +35,9 @@ class PlcReading(CamelModel):
     timestamp: datetime = Field(default_factory=_utcnow)
     generator_kw: float
     status: Literal["OK", "FAULT"] = "OK"
+    # Electrical frequency of the islanded bus. None when the source (a bare
+    # kW register, or an older simulator) does not report it.
+    frequency_hz: Optional[float] = None
 
 
 class Miner(CamelModel):
@@ -60,6 +63,16 @@ class ControllerState(BaseModel):
     mining_load_kw: float
     active_miners: int
     latest_plc_kw: float
+    # Frequency governor view: latest Hz and how the controller classified it.
+    #   N/A  — source reports no frequency (kW-only control)
+    #   OK   — inside the add/shed band
+    #   HOLD — below nominal minus add margin: no ADD allowed
+    #   LOW  — under-frequency: shed one miner per tick
+    #   TRIP — below trip threshold: failsafe, all miners off
+    latest_hz: Optional[float] = None
+    frequency_status: Literal["N/A", "OK", "HOLD", "LOW", "TRIP"] = "N/A"
+    # Which fleet adapter is driving the miners.
+    fleet_backend: Literal["SIMULATED", "CGMINER"] = "SIMULATED"
 
 
 class LogEvent(CamelModel):
